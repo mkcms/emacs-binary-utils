@@ -4,6 +4,7 @@ This repository contains a bunch of Emacs packages for working with binary
 files:
 
 - [`objdump.el`](#objdumpel---a-library-for-working-with-objdump-utility)
+- [`asm-data.el`](#asm-datael---conversion-between-data-representations-in-asm-buffers)
 
 ## `objdump.el` - A library for working with `objdump` utility ##
 
@@ -33,6 +34,44 @@ The API functions are:
 - `objdump-raw`
 
   Get the raw contents of a section.
+
+## `asm-data.el` - Conversion between data representations in ASM buffers ##
+
+This package lets you change the way data is represented in ASM buffers.  For
+example, when the buffer contains:
+
+```asm
+.4byte 1819043176
+.byte 111
+.byte 0
+```
+
+calling `asm-data-convert` and selecting the ".asciz" directive changes that
+to:
+
+```asm
+.asciz "hello"
+```
+
+This representation can again be changed, e.g. to 2byte (here called with a
+prefix argument for hexadecimal number representation):
+
+```asm
+.2byte 0x6568
+.2byte 0x6c6c
+.2byte 0x006f
+```
+
+It can convert data to .ascii, .asciz, .byte, .2byte, .4byte, .8byte, .octa
+(16-byte), .single and .zero GAS directives.
+
+Integers can be converted to unsigned/signed decimal/hex/binary
+representation.
+
+Floating-point directive .single assumes 32-bit floats.
+
+The variable `asm-data-endianness` controls the type of numbers<->bytes
+conversion.
 
 ## License ##
 
