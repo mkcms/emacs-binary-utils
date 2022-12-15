@@ -5,6 +5,7 @@ files:
 
 - [`objdump.el`](#objdumpel---a-library-for-working-with-objdump-utility)
 - [`asm-data.el`](#asm-datael---conversion-between-data-representations-in-asm-buffers)
+- [`asm-jump.el`](#asm-jumpel---buttons-for-jumps-in-asm-mode)
 
 ## `objdump.el` - A library for working with `objdump` utility ##
 
@@ -72,6 +73,17 @@ Floating-point directive .single assumes 32-bit floats.
 
 The variable `asm-data-endianness` controls the type of numbers<->bytes
 conversion.
+
+## `asm-jump.el` - Buttons for jumps in ASM mode ##
+
+This package provides the function `asm-jump-process-buffer` which scans the
+current buffer for ASM jump statements and makes buttons for them.
+
+The action for buttons created by this function will search the current buffer
+for the referenced label and move the point there.
+
+Another command, `asm-jump-reverse` finds the first jump statement to the
+current label.
 
 ## License ##
 

@@ -2,6 +2,7 @@ emacs ?= emacs
 FILES :=                        \
         asm-data-test.el        \
         asm-data.el             \
+        asm-jump.el             \
         objdump-test.el         \
         objdump.el              \
 
