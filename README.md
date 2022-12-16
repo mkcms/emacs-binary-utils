@@ -6,6 +6,7 @@ files:
 - [`objdump.el`](#objdumpel---a-library-for-working-with-objdump-utility)
 - [`asm-data.el`](#asm-datael---conversion-between-data-representations-in-asm-buffers)
 - [`asm-jump.el`](#asm-jumpel---buttons-for-jumps-in-asm-mode)
+- [`compiled-file.el`](#compiled-fileel---getset-the-compiled-file-for-current-source-file)
 
 ## `objdump.el` - A library for working with `objdump` utility ##
 
@@ -84,6 +85,18 @@ for the referenced label and move the point there.
 
 Another command, `asm-jump-reverse` finds the first jump statement to the
 current label.
+
+## `compiled-file.el` - Get/set the compiled file for current source file ##
+
+This helper package defines a variable `compiled-file` which can be
+set to the path to the object file for current source file.
+
+It can also automatically find an object file if the variable
+`compiled-file-directory` is set to the build directory.
+
+Having the path to a binary file of the current source is used by some
+other packages to automatically switch from source to disassembly and
+vice-versa.
 
 ## License ##
 
