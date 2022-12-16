@@ -56,10 +56,10 @@
          (with-temp-buffer
            (setq ,opts (cl-list* ,src-filename "-o" ,out-filename ,opts))
            (message "Running %s with args %S in dir %s" ,prog ,opts default-directory)
-           (setq gcc-rv (apply #'call-process ,prog nil (current-buffer) nil ,opts))
-           (unless (zerop gcc-rv)
+           (setq ,gcc-rv (apply #'call-process ,prog nil (current-buffer) nil ,opts))
+           (unless (zerop ,gcc-rv)
              (error "GCC failed with code %s, src %s, dst %s, dir %s, args %s:\n\n%s"
-                    gcc-rv ,src-filename ,out-filename default-directory ,opts
+                    ,gcc-rv ,src-filename ,out-filename default-directory ,opts
                     (buffer-string))))
          ,@body
          (delete-directory ,dir t)))))
