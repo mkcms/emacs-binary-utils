@@ -7,6 +7,7 @@ files:
 - [`asm-data.el`](#asm-datael---conversion-between-data-representations-in-asm-buffers)
 - [`asm-jump.el`](#asm-jumpel---buttons-for-jumps-in-asm-mode)
 - [`compiled-file.el`](#compiled-fileel---getset-the-compiled-file-for-current-source-file)
+- [`compdb.el`](#compdbel---work-with-compilation-databases)
 
 ## `objdump.el` - A library for working with `objdump` utility ##
 
@@ -97,6 +98,31 @@ It can also automatically find an object file if the variable
 Having the path to a binary file of the current source is used by some
 other packages to automatically switch from source to disassembly and
 vice-versa.
+
+## `compdb.el` - Work with compilation databases ##
+
+This package provides utilities for working with compilation
+databases.
+
+The main API functions are:
+
+- `compdb-path`
+
+Locate database for FILENAME by scanning directory tree upwards.
+
+- `compdb`
+
+Get parsed compilation database for a project. The return value is
+either nil if the database does not exist, or a hash table.
+
+- `compdb-compile`
+
+Compile the file the current buffer is visiting.
+
+- `compdb-switch`
+
+Switch the current compilation database. This works by replacing the
+current compilation database with a symbolic link to the new database.
 
 ## License ##
 
