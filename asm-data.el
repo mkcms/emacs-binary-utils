@@ -101,8 +101,9 @@
   "Alist of directive aliases.  Keys are aliases, values are directives.")
 
 (defcustom asm-data-endianness 'little
-  "Data endianness."
-  :type '(choice (const little) (const big)))
+  "Data endianness: little or big."
+  :type '(choice (const little) (const big))
+  :safe #'symbolp)
 
 (defun asm-data--alias (directive)
   (while (assoc directive asm-data--aliases)
