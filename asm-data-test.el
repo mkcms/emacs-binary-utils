@@ -53,7 +53,9 @@
 
   (let ((asm-data-endianness 'little))
     (should (equal (asm-data--to-bytes ".2byte 12345") [57 48]))
+    (should (equal (asm-data--to-bytes ".short 12345") [57 48]))
     (should (equal (asm-data--to-bytes ".2byte 65535") [255 255]))
+    (should (equal (asm-data--to-bytes ".hword 65535") [255 255]))
     (should (equal (asm-data--to-bytes ".2byte -1") [255 255]))
     (should (equal (asm-data--to-bytes ".2byte -2") [254 255]))
     (should (equal (asm-data--to-bytes ".2byte 0xff") [255 0]))
@@ -72,6 +74,8 @@
 
   (let ((asm-data-endianness 'little))
     (should (equal (asm-data--to-bytes ".4byte 1234567") [135 214 18 0]))
+    (should (equal (asm-data--to-bytes ".int 1234567") [135 214 18 0]))
+    (should (equal (asm-data--to-bytes ".long 1234567") [135 214 18 0]))
     (should (equal (asm-data--to-bytes ".4byte 0xff") [255 0 0 0]))
     (should (equal (asm-data--to-bytes ".4byte 0xfffefdfc") [252 253 254 255]))
     (should (equal (asm-data--to-bytes ".4byte -0") [0 0 0 0]))
@@ -290,8 +294,16 @@
                    '((".2byte" . "256") (".byte" . "2")))))
 
   (let ((asm-data-endianness 'little))
+    (should (equal (asm-data--do-conversion ".short" [0 1 2])
+                   '((".short" . "256") (".byte" . "2")))))
+
+  (let ((asm-data-endianness 'little))
     (should (equal (asm-data--do-conversion ".2byte" [1 0 1 0])
                    '((".2byte" . "1") (".2byte" . "1")))))
+
+  (let ((asm-data-endianness 'little))
+    (should (equal (asm-data--do-conversion ".hword" [1 0 1 0])
+                   '((".hword" . "1") (".hword" . "1")))))
 
   (let ((asm-data-endianness 'little))
     (should (equal (asm-data--do-conversion ".2byte" [1 2 254 255])
@@ -369,6 +381,12 @@
 
     (should (equal (asm-data--do-conversion ".4byte" [1 0 0 0])
                    '((".4byte" . "1"))))
+
+    (should (equal (asm-data--do-conversion ".int" [1 0 0 0])
+                   '((".int" . "1"))))
+
+    (should (equal (asm-data--do-conversion ".long" [1 0 0 0])
+                   '((".long" . "1"))))
 
     (should (equal (asm-data--do-conversion ".4byte" [0 1 0 0])
                    '((".4byte" . "256"))))

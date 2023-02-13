@@ -42,6 +42,8 @@
 ;; It can convert data to .ascii, .asciz, .byte, .2byte, .4byte, .8byte, .octa
 ;; (16-byte), .single and .zero GAS directives.
 ;;
+;; Directive aliases are also supported (.int, .long, .short, .hword, .float).
+;;
 ;; Integers can be converted to unsigned/signed decimal/hex/binary
 ;; representation.
 ;;
@@ -72,12 +74,12 @@
               ".ascii"
               ".asciz"
               ".byte"
-              ".2byte"
-              ".4byte"
+              ".2byte" ".short" ".hword"
+              ".4byte" ".int" ".long"
               ".8byte"
               ".octa"                   ; 16-byte integer
 
-              ".single"                 ; 32 bit float
+              ".single" ".float"        ; 32 bit float
 
               ".zero"
 
@@ -88,9 +90,24 @@
     val)
   "List of asm data directives.")
 
+(defvar asm-data--aliases
+  '(
+    (".int" . ".4byte")
+    (".long" . ".int")
+    (".short" . ".2byte")
+    (".hword" . ".short")
+    (".float" . ".single")
+    )
+  "Alist of directive aliases.  Keys are aliases, values are directives.")
+
 (defcustom asm-data-endianness 'little
   "Data endianness."
   :type '(choice (const little) (const big)))
+
+(defun asm-data--alias (directive)
+  (while (assoc directive asm-data--aliases)
+    (setq directive (cdr (assoc directive asm-data--aliases))))
+  directive)
 
 (defun asm-data--parse-value (directive string)
   "Parse STRING as data encoded with DIRECTIVE and return vector of bytes."
@@ -123,6 +140,7 @@ like `read', but:
 
   - reads hexadecimal, binary (0b...) numbers
   - reads signed numbers and makes them unsigned"
+  (setq directive (asm-data--alias directive))
   (when (looking-at "[[:space:]]+")
     (goto-char (match-end 0)))
   (cond
@@ -171,6 +189,7 @@ like `read', but:
 
 (defun asm-data--value-to-bytes (directive value)
   "Convert VALUE (a Lisp object parsed from data DIRECTIVE) to bytes."
+  (setq directive (asm-data--alias directive))
   (cond
    ((and (string= directive ".ascii") (stringp value))
     (string-to-vector value))
@@ -384,7 +403,8 @@ If BASE is non-nil, then numbers are output in that base."
                (let ((first (seq-subseq bytes 0 n)))
                  (setq bytes (seq-subseq bytes n))
                  first)))
-    (let (ret)
+    (let (ret (original-directive directive))
+      (setq directive (asm-data--alias directive))
       (while (> (length bytes) 0)
         (cond
          ((or (string= directive ".ascii") (string= directive ".asciz"))
@@ -420,33 +440,33 @@ If BASE is non-nil, then numbers are output in that base."
 
          ((and (string= directive ".2byte") (>= (length bytes) 2))
           (push
-           (cons ".2byte"
+           (cons original-directive
                  (asm-data--vector-to-numeric-string (take 2) signed base))
            ret))
 
          ((and (string= directive ".4byte") (>= (length bytes) 4))
           (push
-           (cons ".4byte"
+           (cons original-directive
                  (asm-data--vector-to-numeric-string (take 4) signed base))
            ret))
 
          ((and (string= directive ".8byte") (>= (length bytes) 8)
                asm-data--big-values-support)
           (push
-           (cons ".8byte"
+           (cons original-directive
                  (asm-data--vector-to-numeric-string (take 8) signed base))
            ret))
 
          ((and (string= directive ".octa") (>= (length bytes) 16)
                asm-data--big-values-support)
           (push
-           (cons ".octa"
+           (cons original-directive
                  (asm-data--vector-to-numeric-string (take 16) signed base))
            ret))
 
          ((and (string= directive ".single") (>= (length bytes) 4))
           (push
-           (cons ".single"
+           (cons original-directive
                  (replace-regexp-in-string
                   "0\\(0+$\\)" "0"
                   (format "%.17g" (asm-data--vector-to-float (take 4) 8 23))))
