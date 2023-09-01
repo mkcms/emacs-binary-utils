@@ -56,31 +56,64 @@
   :group 'c)
 
 (defcustom objdump-program (or (executable-find "objdump") "objdump")
-  "Objdump executable."
-  :type 'file)
+  "Objdump executable.
+This can either be a file path to the objdump executable, or an
+alist of (TESTER . PATH) entries, where TESTER is either a regexp
+for file format or a function accepting a filename, and PATH is a
+path to objdump executable.  The output is checked against parsed
+output of running 'PATH -f' on a binary file."
+  :type '(choice file
+                 (alist :key-type (choice string function) :value-type file)))
 
 (defvar objdump-file-format nil
   "File format of the last file processed.
 This is a string like \"elf64-x86-64\" and is printed by
 objdump on every run.")
 
+(defun objdump--choose-executable (binary)
+  "Choose objdump program for examining BINARY."
+  (cond
+   ((stringp objdump-program) objdump-program)
+   ((listp objdump-program)
+    (or (cl-loop
+         for (tester . program) in objdump-program
+
+         if (and (functionp tester) (funcall tester binary))
+         return program
+
+         else if (when-let ((output (and (stringp tester)
+                                         (shell-command-to-string
+                                          (format "%s -f %s" program binary)))))
+                   (and (string-match
+                         ".*[^:\n]+:[[:space:]]+file format \\([^\n]*\\).*"
+                         output)
+                        (string-match-p tester (match-string 1 output))))
+         return program)
+        (error "No objdump program found for %s" binary)))
+   (t (error "`objdump-program' has unrecognized value"))))
+
 (defun objdump--run-command (args)
   "Run objdump with ARGS.
 The output of the process is appended to the end of current
 buffer.  The variable `objdump-file-format' is updated."
-  (let ((pr nil)
-        (pt (point))
-        (process
-         (make-process
-          :name "objdump"
-          :buffer (current-buffer)
-          :command `(,objdump-program ,@args)
-          :connection-type 'pipe
-          :noquery t)))
+  (let* ((pr nil)
+         (pt (point))
+         (program (objdump--choose-executable
+                   (cl-find-if (lambda (a)
+                                 (and (not (string-prefix-p "-" a))
+                                      (file-exists-p a)))
+                               args)))
+         (process
+          (make-process
+           :name "objdump"
+           :buffer (current-buffer)
+           :command `(,program ,@args)
+           :connection-type 'pipe
+           :noquery t)))
     (unwind-protect
         (progn
           (setq pr (make-progress-reporter
-                    (format "Running %s %s" objdump-program
+                    (format "Running %s %s" program
                             (combine-and-quote-strings args))))
           (accept-process-output nil 0.05)
           (while (process-live-p process)
@@ -91,7 +124,7 @@ buffer.  The variable `objdump-file-format' is updated."
               ;; Find error message
               (cl-loop until msg
                        for re in (list (format "^%s: \\(.*\\)$"
-                                               (regexp-quote objdump-program))
+                                               (regexp-quote program))
                                        "objdump: \\(.*\\)$")
                        do (goto-char (point-min))
                        if (re-search-forward re nil t)

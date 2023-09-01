@@ -278,5 +278,28 @@ int foo(int x) { return external_func(x) - 128; }
         (should (re-search-forward "^[[:xdigit:]]+ <foo.*>:$"))
         (should (search-forward "external_func"))))))
 
+(ert-deftest objdump-choose-executable ()
+  (objdump-test
+   "
+int foo() { return 0; }
+"
+   "libfoo.so" "gcc" '("-m32" "-shared")
+
+   (make-symbolic-link (executable-find "objdump") "objdump-for-elf32")
+   (make-symbolic-link (executable-find "objdump") "objdump-for-elf64")
+
+   (let ((objdump-program
+          `(("elf32.*" . ,(expand-file-name "objdump-for-elf32"))
+            ((lambda (filename) (string= filename "foo"))
+             . "objdump-for-foo")
+            (".*" . ,(expand-file-name "objdump-for-elf64")))))
+     (should (equal (objdump--choose-executable "libfoo.so")
+                    (expand-file-name "objdump-for-elf32")))
+     (should (equal (objdump--choose-executable (executable-find "emacs"))
+                    (expand-file-name "objdump-for-elf64")))
+     (should (equal (objdump--choose-executable "foo")
+                    "objdump-for-foo"))
+     (should-error (objdump--choose-executable "no-such-file")))))
+
 (provide 'objdump-test)
 ;;; objdump-test.el ends here
