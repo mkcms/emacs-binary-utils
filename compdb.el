@@ -80,16 +80,26 @@ entries for that file.  The values are in the form of plists."
          (puthash path
                   (cons mtime
                         (with-temp-buffer
-                          (insert-file-contents path)
-                          (let* ((json-object-type 'plist)
-                                 (json-array-type 'vector)
-                                 (json-value (json-read))
-                                 (htab (make-hash-table :test #'equal)))
-                            (cl-loop for entry across json-value
-                                     for file = (expand-file-name
-                                                 (plist-get entry :file)
-                                                 (plist-get entry :directory))
-                                     do (puthash file entry htab))
+                          (let ((json-object-type 'plist)
+                                (json-array-type 'vector)
+                                json-value
+                                (htab (make-hash-table :test #'equal))
+                                pr)
+                            (unwind-protect
+                                (progn
+                                  (insert-file-contents-literally path)
+                                  (setq pr (make-progress-reporter
+                                             "Reading compilation database"
+                                             nil (point-max)))
+                                  (progress-reporter-update pr)
+                                  (setq json-value (json-read))
+                                  (cl-loop for entry across json-value
+                                           for file = (expand-file-name
+                                                       (plist-get entry :file)
+                                                       (plist-get entry :directory))
+                                           do (puthash file entry htab)
+                                           (progress-reporter-update pr (point))))
+                              (progress-reporter-done pr))
                             htab)))
                   compdb--cache)))))))
 
