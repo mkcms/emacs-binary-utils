@@ -72,25 +72,30 @@ objdump on every run.")
 
 (defun objdump--choose-executable (binary)
   "Choose objdump program for examining BINARY."
-  (cond
-   ((stringp objdump-program) objdump-program)
-   ((listp objdump-program)
-    (or (cl-loop
-         for (tester . program) in objdump-program
+  (let (objdump)
+    (cond
+     ((stringp objdump-program) (setq objdump objdump-program))
+     ((listp objdump-program)
+      (setq objdump
+            (cl-loop
+             for (tester . program) in objdump-program
 
-         if (and (functionp tester) (funcall tester binary))
-         return program
+             if (and (functionp tester) (funcall tester binary))
+             return program
 
-         else if (when-let ((output (and (stringp tester)
-                                         (shell-command-to-string
-                                          (format "%s -f %s" program binary)))))
-                   (and (string-match
-                         ".*[^:\n]+:[[:space:]]+file format \\([^\n]*\\).*"
-                         output)
-                        (string-match-p tester (match-string 1 output))))
-         return program)
-        (error "No objdump program found for %s" binary)))
-   (t (error "`objdump-program' has unrecognized value"))))
+             else if (when-let ((output
+                                 (and (stringp tester)
+                                      (shell-command-to-string
+                                       (format "%s -f %s" program binary)))))
+                       (and (string-match
+                             ".*[^:\n]+:[[:space:]]+file format \\([^\n]*\\).*"
+                             output)
+                            (string-match-p tester (match-string 1 output))))
+             return program)))
+     (t (error "`objdump-program' has unrecognized value")))
+    (unless objdump
+      (error "No objdump program found for %s" binary))
+    (or (executable-find objdump) objdump)))
 
 (defun objdump--run-command (args)
   "Run objdump with ARGS.
@@ -464,6 +469,10 @@ where
 (defvar objdump-disassembly-extra-args nil
   "List of strings to append to objdump's disassembly command.")
 
+(defvar objdump-disassembly-extra-args-alist nil
+  "Alist mapping objdump executable to a list of extra arguments.
+The extra arguments are passed to objdump's disassembly command.")
+
 (cl-defun objdump-disassemble (filename &optional section start-address stop-address
                                         &key demangle
                                         reloc
@@ -482,7 +491,7 @@ If HIDE-RAW-INSN is nil, raw instructions are shown, otherwise
 the --no-show-raw-insn option is added.
 
 Arguments passed to objdump will also include the contents of
-`objdump-disassembly-extra-args'."
+`objdump-disassembly-extra-args' and `objdump-disassembly-extra-args-alist'."
   (objdump--run-command
    (remq nil
          (cl-list*
@@ -494,7 +503,9 @@ Arguments passed to objdump will also include the contents of
           (and hide-raw-insn "--no-show-raw-insn")
           (and start-address (format "--start-address=0x%x" start-address))
           (and stop-address (format "--stop-address=0x%x" stop-address))
-          objdump-disassembly-extra-args))))
+          (append objdump-disassembly-extra-args
+                  (cdr (assoc (objdump--choose-executable filename)
+                              objdump-disassembly-extra-args-alist)))))))
 
 (defvar objdump--dump-line-regexp
   ;;  00f0 12ff3200 00000000 00000000 00000000  ..2.............
