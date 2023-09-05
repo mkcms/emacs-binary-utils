@@ -3,6 +3,9 @@ FILES :=                        \
         asm-data-test.el        \
         asm-data.el             \
         asm-jump.el             \
+        asm-x86.el              \
+        binfile-test.el         \
+        binfile.el              \
         compdb.el               \
         compiled-file.el        \
         objdump-test.el         \

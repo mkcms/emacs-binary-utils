@@ -3,11 +3,44 @@
 This repository contains a bunch of Emacs packages for working with binary
 files:
 
+- [`binfile.el`](#binfileel---disassemble-binary-files)
 - [`objdump.el`](#objdumpel---a-library-for-working-with-objdump-utility)
 - [`asm-data.el`](#asm-datael---conversion-between-data-representations-in-asm-buffers)
 - [`asm-jump.el`](#asm-jumpel---buttons-for-jumps-in-asm-mode)
 - [`compiled-file.el`](#compiled-fileel---getset-the-compiled-file-for-current-source-file)
 - [`compdb.el`](#compdbel---work-with-compilation-databases)
+
+## `binfile.el` - Disassemble binary files ##
+
+An extendable package for examining binary files.  It can disassemble many
+types of ELF files and postprocess the results to be more easily readable
+(e.g. it can parse relocations reported by objdump and output them intermixed
+with code).
+
+The main command is `binfile-disassemble`, which prompts for a function name
+(by default, the function at point) and, if it can't be guessed, a binary file.
+The binary file is by default provided by `compiled-file.el` library.
+
+Using `compdb-output-filename` as `compiled-file-function` allows automatically
+finding binary (.o) files for current buffer from `compile_commands.json` file.
+
+The other commands are:
+
+- `binfile-insert-data`
+
+  Insert data (a symbol, a section, or an address range) from a binary file
+  into the current disassembly buffer.  It can be used to examine .data,
+  .rodata sections etc.
+
+- `binfile-diff`
+
+  Display a diff buffer for examining a difference between two disassembled
+  binary files.
+
+- `binfile-symbol-info`
+
+  Prompt for a symbol and a binary filename, and display information about that
+  symbol.
 
 ## `objdump.el` - A library for working with `objdump` utility ##
 
