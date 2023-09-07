@@ -156,7 +156,12 @@ argument), prompt the user to edit the command before running it."
       (let ((args (split-string-and-unquote (plist-get ent :command))))
         (expand-file-name
          (nth (1+ (cl-position "-o" args :test #'string=)) args)
-         (plist-get ent :directory)))))))
+         (plist-get ent :directory))))
+     ((and (plist-get ent :arguments)
+           (seq-contains-p (plist-get ent :arguments) "-o"))
+      (let* ((pos (1+ (seq-position (plist-get ent :arguments) "-o")))
+             (out-arg (seq-elt (plist-get ent :arguments) pos)))
+        (expand-file-name out-arg (plist-get ent :directory)))))))
 
 (defun compdb-switch (new-path)
   "Switch the current compilation database to NEW-PATH.
