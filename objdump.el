@@ -327,12 +327,7 @@ where
            (equal mtime (car cached)))
       (cdr cached))
      (t
-      (let* ((demangler (make-process
-                         :name "objdump-cxxfilt"
-                         :noquery t
-                         :command (list objdump-c++filt-program)
-                         :connection-type 'pipe
-                         :buffer (generate-new-buffer " *objdump-c++filt*")))
+      (let* (demangler
              (symbols (make-hash-table :test #'equal))
              mangled-symbols
              (nsymbols 0)
@@ -344,6 +339,14 @@ where
              dynsyms-start dynsyms-end)
         (unwind-protect
             (with-temp-buffer
+              (setq demangler
+                    (make-process
+                     :name "objdump-cxxfilt"
+                     :noquery t
+                     :command (list objdump-c++filt-program)
+                     :connection-type 'pipe
+                     :buffer (generate-new-buffer " *objdump-c++filt*")))
+
               (objdump--run-command args)
 
               ;; Check where normal symbols start
