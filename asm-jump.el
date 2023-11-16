@@ -56,7 +56,7 @@ The return value is the start of the target label."
         (and (or (re-search-forward re nil t)
                  (progn (goto-char (point-min))
                         (re-search-forward label nil t)))
-             (point-at-bol))))))
+             (line-beginning-position))))))
 
 (define-button-type 'asm-jump
   'action #'asm-jump-action
@@ -91,7 +91,7 @@ The return value is the start of the target label."
 (defun asm-jump-reverse ()
   "Go to place which jumps to current label."
   (interactive)
-  (goto-char (point-at-eol))
+  (goto-char (line-end-position))
   (save-restriction
     (widen)
     (narrow-to-region

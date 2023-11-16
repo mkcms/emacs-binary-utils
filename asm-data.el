@@ -66,7 +66,7 @@
 (defconst asm-data--big-values-support
   (and (>= emacs-major-version 27)
        (fboundp 'bignump)
-       (bignump (lsh 1 63)))
+       (bignump (ash 1 63)))
   "Non-nil if values larger than 4 bytes are supported.")
 
 (defvar asm-data--directives
@@ -179,9 +179,9 @@ like `read', but:
                    ('".byte" (list -128 127 255))
                    ('".2byte" (list -32768 32767 65535))
                    ('".4byte" (list -2147483648 2147483647 4294967295))
-                   ('".8byte" (list (- (lsh 1 63))
-                                    (1- (lsh 1 63))
-                                    (1- (lsh 1 64))))))
+                   ('".8byte" (list (- (ash 1 63))
+                                    (1- (ash 1 63))
+                                    (1- (ash 1 64))))))
                  (minusvalue (- value)))
       (if (<= minimum minusvalue maximum)
           (logand minusvalue mask)
@@ -210,13 +210,13 @@ like `read', but:
          asm-data--big-values-support
          (integerp value)
          (>= value 0)
-         (<= value (1- (lsh 1 64))))
+         (<= value (1- (ash 1 64))))
     (asm-data--integer-to-vector value 8))
    ((and (string= directive ".octa")
          asm-data--big-values-support
          (integerp value)
          (>= value 0)
-         (<= value (1- (lsh 1 128))))
+         (<= value (1- (ash 1 128))))
     (asm-data--integer-to-vector value 16))
    ((and (string= directive ".single") (floatp value))
     (asm-data--float-to-vector value 8 23))
@@ -231,7 +231,7 @@ like `read', but:
         (let ((bytes
                (cl-loop for i from 1 to nbytes
                         vconcat (vector (logand number 255))
-                        do (setq number (lsh number -8)))))
+                        do (setq number (ash number -8)))))
           (pcase-exhaustive asm-data-endianness
             ('little bytes)
             ('big (nreverse bytes))))
@@ -297,7 +297,7 @@ like `read', but:
           (dotimes (_ exponent-bits)
             (insert (char-to-string (aref "01" (% exponent 2))))
             (forward-char -1)
-            (setq exponent (lsh exponent -1)))
+            (setq exponent (ash exponent -1)))
           (goto-char (point-max))
 
           (let ((frac (mod s 1.0)))
@@ -357,7 +357,7 @@ like `read', but:
   "Make an 8-char binary string for number BYTE."
   (cl-loop for i upto 7
            collect (% byte 2) into bits
-           do (setq byte (lsh byte -1))
+           do (setq byte (ash byte -1))
            finally return (mapconcat
                            (lambda (b) (char-to-string (aref "01" b)))
                            (nreverse bits) "")))
@@ -377,7 +377,7 @@ If BASE is 2, returns a binary number."
    ((and (eq base 2) (eq 'big asm-data-endianness))
     (concat "0b" (mapconcat #'asm-data--byte-to-binary vector "")))
    (signed
-    (let* ((signbit (lsh 1 (1- (* 8 (length vector)))))
+    (let* ((signbit (ash 1 (1- (* 8 (length vector)))))
            (exp (expt 2 (* 8 (length vector))))
            (number (asm-data--vector-to-integer vector))
            (is-positive (zerop (logand number signbit))))
@@ -495,13 +495,13 @@ If BASE is non-nil, then numbers are output in that base."
                         do (back-to-indentation)
                         if (looking-at-p op)
                         return op)
-          (goto-char (point-at-bol))
+          (goto-char (line-beginning-position))
           (setq pt (point))
           (when (bobp) (throw 'done t))
           (forward-line -1)))
       (when pt
         (goto-char pt)
-        (goto-char (point-at-bol))))))
+        (goto-char (line-beginning-position))))))
 
 (defun asm-data--goto-end ()
   "Move point to end of asm data block at point, or return nil."
@@ -513,14 +513,14 @@ If BASE is non-nil, then numbers are output in that base."
                         do (back-to-indentation)
                         if (looking-at-p op)
                         return op)
-          (goto-char (point-at-eol))
+          (goto-char (line-end-position))
           (setq pt (point))
           (when (eobp) (throw 'done t))
           (forward-line 1)
-          (goto-char (point-at-bol))))
+          (goto-char (line-beginning-position))))
       (when pt
         (goto-char pt)
-        (goto-char (point-at-eol))))))
+        (goto-char (line-end-position))))))
 
 (defun asm-data--at-point ()
   "Return asm data block at point, or nil."
@@ -548,7 +548,7 @@ If BASE is non-nil, then numbers are output in that base."
                        (asm-data--parse-value
                         directive (buffer-substring-no-properties
                                    (match-end 0)
-                                   (point-at-eol)))
+                                   (line-end-position)))
                        res)
                       (setq found t)
                       (cl-return))
@@ -607,7 +607,7 @@ the numbers are printed in that base.  Only BASE 2 and 16 are allowed."
 When INTERACTIVE, print how many bytes are before this line."
   (interactive
    (if-let ((bounds (bounds-of-thing-at-point 'asm-data)))
-       (list (car bounds) (cdr bounds) (point-at-bol) t)
+       (list (car bounds) (cdr bounds) (line-beginning-position) t)
      (user-error "There is no asm-data at point")))
   (unless (<= beg point end)
     (error "POINT should be between BEG and END."))

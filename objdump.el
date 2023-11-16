@@ -146,8 +146,8 @@ buffer.  The variable `objdump-file-format' is updated."
              do (progn (setq objdump-file-format (match-string 1))
                        (replace-match ""))
              else if (looking-at-p "^$")
-             do (delete-region (point-at-bol) (min (1+ (point-at-eol))
-                                                   (point-max)))
+             do (delete-region (line-beginning-position)
+                               (min (1+ (line-end-position)) (point-max)))
              else do (cl-return))))
       (progress-reporter-done pr)
       (delete-process process)
@@ -187,7 +187,8 @@ MTIME is the file modification time, and FLAGS is the output of
                         (re-search-forward "flags 0x[[:xdigit:]]+:")
                         (forward-line 1)
                         (split-string
-                         (buffer-substring (point-at-bol) (point-at-eol))
+                         (buffer-substring (line-beginning-position)
+                                           (line-end-position))
                          ", *")))
                 objdump--flags-cache))))))
 
@@ -306,20 +307,20 @@ where
   :demangled  STR    is the demangled name
   :flags      FLAGS  is a list of the symbol's flags.
                      It is a list of zero or more Lisp symbols:
-    'local
-    'global
-    'unique-global
-    'weak
-    'strong
-    'constructor
-    'warning
-    'indirect-reference
-    'ifunc
-    'debug
-    'dynamic
-    'function
-    'file
-    'object"
+    \\='local
+    \\='global
+    \\='unique-global
+    \\='weak
+    \\='strong
+    \\='constructor
+    \\='warning
+    \\='indirect-reference
+    \\='ifunc
+    \\='debug
+    \\='dynamic
+    \\='function
+    \\='file
+    \\='object"
   (let ((mtime (objdump--file-mtime filename))
         cached)
     (cond
@@ -352,7 +353,7 @@ where
               ;; Check where normal symbols start
               (save-excursion
                 (if (re-search-forward objdump--symtab-start-regexp nil t)
-                    (setq syms-start (1+ (point-at-eol))
+                    (setq syms-start (1+ (line-end-position))
                           syms-end (or (re-search-forward "^$" nil t)
                                        (point-max)))
                   (setq syms-start (point-max) syms-end (point-max))))
@@ -363,7 +364,7 @@ where
               (save-excursion
                 (if (re-search-forward
                      objdump--dynamic-symtab-start-regexp nil t)
-                    (setq dynsyms-start (1+ (point-at-eol))
+                    (setq dynsyms-start (1+ (line-end-position))
                           dynsyms-end (or (re-search-forward "^$" nil t)
                                           (point-max)))
                   (setq dynsyms-start (point-max) dynsyms-end (point-max))))
@@ -380,8 +381,9 @@ where
                       (goto-char start)
                       (while (< (point) end)
                         (progress-reporter-update pr (point))
-                        (goto-char (point-at-bol))
-                        (when (re-search-forward re (min (point-at-eol) end) t)
+                        (goto-char (line-beginning-position))
+                        (when (re-search-forward
+                               re (min (line-end-position) end) t)
                           (let ((address (string-to-number (match-string 1) 16))
                                 (flags (objdump--parse-symbol-flags
                                         (match-string 2)))
@@ -419,8 +421,9 @@ where
 
                     (forward-line -1)
                     (let ((mangled-name (pop mangled-symbols))
-                          (demangled-name (buffer-substring (point-at-bol)
-                                                            (point-at-eol))))
+                          (demangled-name
+                           (buffer-substring
+                            (line-beginning-position) (line-end-position))))
                       (puthash mangled-name demangled-name
                                objdump--mangled-to-demangled-names)
                       (puthash demangled-name
@@ -586,7 +589,7 @@ where
           (goto-char (point-min))
           (when (re-search-forward regexp nil t)
             (forward-line 2)            ;skip header line
-            (goto-char (point-at-bol))
+            (goto-char (line-beginning-position))
             (cl-loop
              while (looking-at objdump--relocation-record-regexp)
              do (forward-line 1)
