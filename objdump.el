@@ -61,7 +61,7 @@ This can either be a file path to the objdump executable, or an
 alist of (TESTER . PATH) entries, where TESTER is either a regexp
 for file format or a function accepting a filename, and PATH is a
 path to objdump executable.  The output is checked against parsed
-output of running 'PATH -f' on a binary file."
+output of running \\='PATH -f\\=' on a binary file."
   :type '(choice file
                  (alist :key-type (choice string function) :value-type file)))
 

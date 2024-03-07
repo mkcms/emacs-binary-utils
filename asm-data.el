@@ -70,7 +70,7 @@
   "Non-nil if values larger than 4 bytes are supported.")
 
 (defvar asm-data--directives
-  (let ((val'(
+  (let ((val (list
               ".ascii"
               ".asciz"
               ".byte"
