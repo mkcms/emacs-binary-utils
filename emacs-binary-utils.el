@@ -1,6 +1,6 @@
 ;;; emacs-binary-utils.el ---      -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2024  Michał Krzywkowski
+;; Copyright (C) 2024-2024  Michał Krzywkowski
 
 ;; Author: Michał Krzywkowski <k.michal@zoho.com>
 ;; Keywords: languages, tools

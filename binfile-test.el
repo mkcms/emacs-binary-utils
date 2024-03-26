@@ -1,6 +1,6 @@
 ;;; binfile-test.el --- Tests for binfile.el     -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2022  Michał Krzywkowski
+;; Copyright (C) 2022-2024  Michał Krzywkowski
 
 ;; Author: Michał Krzywkowski <k.michal@zoho.com>
 ;; Keywords: tests

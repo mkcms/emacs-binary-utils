@@ -1,6 +1,6 @@
 ;;; compiled-file.el --- Get compiled file for current buffer     -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2022  Michał Krzywkowski
+;; Copyright (C) 2022-2024  Michał Krzywkowski
 
 ;; Author: Michał Krzywkowski <k.michal@zoho.com>
 ;; Keywords: languages, tools

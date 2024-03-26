@@ -1,6 +1,6 @@
 ;;; objdump-test.el --- Tests for objdump.el     -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2022  Michał Krzywkowski
+;; Copyright (C) 2022-2024  Michał Krzywkowski
 
 ;; Author: Michał Krzywkowski <k.michal@zoho.com>
 ;; Keywords: tests
