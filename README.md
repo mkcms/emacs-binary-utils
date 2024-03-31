@@ -7,6 +7,7 @@ files:
 - [`objdump.el`](#objdumpel---a-library-for-working-with-objdump-utility)
 - [`asm-data.el`](#asm-datael---conversion-between-data-representations-in-asm-buffers)
 - [`asm-jump.el`](#asm-jumpel---buttons-for-jumps-in-asm-mode)
+- [`asm2src.el`](#asm2srcel---asm-to-source-file-overlays)
 - [`compiled-file.el`](#compiled-fileel---getset-the-compiled-file-for-current-source-file)
 - [`compdb.el`](#compdbel---work-with-compilation-databases)
 
@@ -119,6 +120,33 @@ for the referenced label and move the point there.
 
 Another command, `asm-jump-reverse` finds the first jump statement to the
 current label.
+
+## `asm2src.el` - ASM to source file overlays ##
+
+This package allows you to jump from ASM buffer to a source file and vice
+versa.
+
+`asm2src-process-buffer` is the main function which scans the current ASM
+buffer for file mappings, it must be called once before further usage.
+
+When using `binfile` and the rest of the packages here, you should add:
+
+    (setq objdump-disassembly-extra-args '("-l"))
+    (add-hook 'binfile-disassembly-hook #'asm2src-process-buffer)
+
+To your init file.  The first line makes objdump output source file mappings
+when dumping disassembly, and the second makes sure we can parse and use that
+in Emacs.
+
+`asm2src-jump` allows you to jump to the source buffer from the preprocessed
+ASM buffer.  It sets a transient keymap, `asm2src-jump-keymap` for the duration
+of the command: `C-c C-c` or `RET` goes to the source file, `p` goes to the
+previous mapped location, `n` goes to the next.
+
+`asm2src-jump-to-asm` is the inverse, it should be invoked in a source file and
+will go to the first ASM buffer containing the source line.
+
+`asm2src-add-mapping` can be used to add a custom ASM<->source directory mapping.
 
 ## `compiled-file.el` - Get/set the compiled file for current source file ##
 

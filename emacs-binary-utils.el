@@ -27,6 +27,7 @@
 (require 'asm-data)
 (require 'asm-jump)
 (require 'asm-x86)
+(require 'asm2src)
 (require 'binfile)
 (require 'compdb)
 (require 'compiled-file)

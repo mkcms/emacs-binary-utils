@@ -4,6 +4,7 @@ FILES :=                        \
         asm-data.el             \
         asm-jump.el             \
         asm-x86.el              \
+        asm2src.el              \
         binfile-test.el         \
         binfile.el              \
         compdb.el               \
