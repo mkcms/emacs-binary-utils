@@ -50,8 +50,10 @@ The return value is the start of the target label."
       (widen)
       (narrow-to-region
        ;; Narrow to current function
-       (save-excursion (re-search-backward "^$" (point-min) t))
-       (save-excursion (re-search-forward "^$" (point-max) t)))
+       (or (save-excursion (re-search-backward "^$" (point-min) t))
+           (point-min))
+       (or (save-excursion (re-search-forward "^$" (point-max) t))
+           (point-max)))
       (save-excursion
         (and (or (re-search-forward re nil t)
                  (progn (goto-char (point-min))
@@ -96,8 +98,12 @@ The return value is the start of the target label."
     (widen)
     (narrow-to-region
      ;; Narrow to current function
-     (save-excursion (re-search-backward "^$" (point-min) t))
-     (save-excursion (re-search-forward "^$" (point-max) t)))
+     (or
+      (save-excursion (re-search-backward "^$" (point-min) t))
+      (point-min))
+     (or
+      (save-excursion (re-search-forward "^$" (point-max) t))
+      (point-max)))
     (when (re-search-backward asm-jump-target-regexp nil t)
       (let ((label (match-string 1))
             (pt (match-beginning 0)))
