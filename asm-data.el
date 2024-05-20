@@ -59,7 +59,7 @@
 (require 'seq)
 (require 'subr-x)
 
-(defgroup asm-data nil "Convert data representations in ASM buffers"
+(defgroup asm-data nil "Convert data representations in ASM buffers."
   :group 'languages
   :group 'tools)
 
@@ -105,10 +105,12 @@
   :type '(choice (const little) (const big))
   :safe #'symbolp)
 
-(defun asm-data--alias (directive)
-  (while (assoc directive asm-data--aliases)
-    (setq directive (cdr (assoc directive asm-data--aliases))))
-  directive)
+(defun asm-data--alias (directive-or-alias)
+  "Get the real directive for DIRECTIVE-OR-ALIAS."
+  (while (assoc directive-or-alias asm-data--aliases)
+    (setq directive-or-alias
+          (cdr (assoc directive-or-alias asm-data--aliases))))
+  directive-or-alias)
 
 (defun asm-data--parse-value (directive string)
   "Parse STRING as data encoded with DIRECTIVE and return vector of bytes."
@@ -134,7 +136,7 @@
              finally return (cl-reduce #'vconcat values))))
 
 (defun asm-data--read-value-from-current-buffer (directive)
-  "Like `read', but treats numbers specially if DIRECTIVE is a numeric directive.
+  "Like `read', but treats numbers specially if DIRECTIVE is numeric directive.
 
 This parses and returns a Lisp object for the value after point,
 like `read', but:
@@ -185,7 +187,8 @@ like `read', but:
                  (minusvalue (- value)))
       (if (<= minimum minusvalue maximum)
           (logand minusvalue mask)
-        (error "Value -%s is out of bounds for directive %s" value-string directive))))
+        (error "Value -%s is out of bounds for directive %s"
+               value-string directive))))
    (t (read (current-buffer)))))
 
 (defun asm-data--value-to-bytes (directive value)
@@ -253,6 +256,7 @@ like `read', but:
            finally return ret))
 
 (defun asm-data--float-to-vector (number exponent-bits significand-bits)
+  "Convert NUMBER into a bytevec, using EXPONENT-BITS and SIGNIFICAND-BITS."
   (let* ((signbit (= (copysign 1.0 number) -1.0))
          (max-exponent (1- (expt 2 (1- exponent-bits))))
          (subnormal-p (<= (cdr (frexp (abs number))) (- (1- max-exponent)))))
@@ -314,7 +318,9 @@ like `read', but:
          (asm-data--read-value-from-current-buffer directive) nbytes)))))
 
 (defun asm-data--vector-to-float (vector exponent-bits significand-bits)
-  (let* ((string (substring (asm-data--vector-to-numeric-string vector nil 2) 2))
+  "Convert bytevec VECTOR to a float using EXPONENT-BITS and SIGNIFICAND-BITS."
+  (let* ((string
+          (substring (asm-data--vector-to-numeric-string vector nil 2) 2))
          (signbit (expt -1.0 (- (aref string 0) ?0)))
          (exbits (substring string 1 (+ 1 exponent-bits)))
          (max-exponent (1- (expt 2 (1- exponent-bits))))
@@ -481,7 +487,8 @@ If BASE is non-nil, then numbers are output in that base."
 
          (t
           (push (cons ".byte"
-                      (asm-data--vector-to-numeric-string (take 1) signed base))
+                      (asm-data--vector-to-numeric-string (take 1)
+                                                          signed base))
                 ret))))
       (nreverse ret))))
 
@@ -558,7 +565,7 @@ If BASE is non-nil, then numbers are output in that base."
       (cl-reduce #'vconcat (nreverse res)))))
 
 (defun asm-data-convert (beg end directive &optional signed base)
-  "Replace region of asm data BEG END with the same data converted to DIRECTIVE.
+  "Replace region of asm data BEG END with the data converted to DIRECTIVE.
 
 If SIGNED is non-nil, printed numbers may be negative.
 If BASE is either 2 or 16, output numbers in that base.
@@ -610,7 +617,7 @@ When INTERACTIVE, print how many bytes are before this line."
        (list (car bounds) (cdr bounds) (line-beginning-position) t)
      (user-error "There is no asm-data at point")))
   (unless (<= beg point end)
-    (error "POINT should be between BEG and END."))
+    (error "POINT should be between BEG and END"))
   (save-restriction
     (widen)
     (let* ((bytes (asm-data--to-bytes (buffer-substring beg point)))

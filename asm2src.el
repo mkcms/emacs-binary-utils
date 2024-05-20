@@ -33,18 +33,19 @@
 ;;     (add-hook 'binfile-disassembly-hook #'asm2src-process-buffer)
 ;;
 ;; To your init file.  The first line makes objdump output source file mappings
-;; when dumping disassembly, and the second makes sure we can parse and use that
-;; in Emacs.
+;; when dumping disassembly, and the second makes sure we can parse and use
+;; that in Emacs.
 ;;
 ;; `asm2src-jump' allows you to jump to the source buffer from the preprocessed
-;; ASM buffer.  It sets a transient keymap, `asm2src-jump-keymap' for the duration
-;; of the command: `C-c C-c' or `RET' goes to the source file, `p' goes to the
-;; previous mapped location, `n' goes to the next.
+;; ASM buffer.  It sets a transient keymap, `asm2src-jump-keymap' for the
+;; duration of the command: `C-c C-c' or `RET' goes to the source file, `p'
+;; goes to the previous mapped location, `n' goes to the next.
 ;;
-;; `asm2src-jump-to-asm' is the inverse, it should be invoked in a source file and
-;; will go to the first ASM buffer containing the source line.
+;; `asm2src-jump-to-asm' is the inverse, it should be invoked in a source file
+;; and will go to the first ASM buffer containing the source line.
 ;;
-;; `asm2src-add-mapping' can be used to add a custom ASM<->source directory mapping.
+;; `asm2src-add-mapping' can be used to add a custom ASM<->source directory
+;; mapping.
 
 ;;; Code:
 
@@ -55,7 +56,8 @@
 (require 'seq)
 (require 'subr-x)
 
-(defvar asm2src-location-regexp "^\\([^:\n]+\\):\\([0-9]+\\)\\s-*\\((discriminator.*)\\)?$"
+(defvar asm2src-location-regexp
+  "^\\([^:\n]+\\):\\([0-9]+\\)\\s-*\\((discriminator.*)\\)?$"
   "Regexp matching a source file location in ASM buffer.")
 
 (defun asm2src-scan ()
@@ -120,7 +122,8 @@ used to jump to source."
             (forward-line -1)
             (while (< (point) asm-end-point)
               (when (looking-at-p "^\\(.*[(].*[)].*\\):\\s-*$")
-                (delete-region (line-beginning-position) (1+ (line-end-position))))
+                (delete-region
+                 (line-beginning-position) (1+ (line-end-position))))
               (forward-line 1)))
 
           (delete-region asm-info-line-start-point asm-info-line-end-point)
@@ -151,12 +154,14 @@ The plist contains :file, :line, :beg, :end keys.
 
 The return value is nil if there is no mapped region at POINT."
   (when-let ((id (get-text-property point 'asm2src-id)))
-    `(:file ,(get-text-property point 'asm2src-file)
-            :line ,(get-text-property point 'asm2src-line)
-            :beg ,(let ((end-prev (previous-single-char-property-change point 'asm2src-id)))
-                    (if (eq (get-text-property end-prev 'asm2src-id) id)
-                        end-prev (point)))
-            :end ,(next-single-char-property-change point 'asm2src-id))))
+    (list
+     :file (get-text-property point 'asm2src-file)
+     :line (get-text-property point 'asm2src-line)
+     :beg (let ((end-prev
+                 (previous-single-char-property-change point 'asm2src-id)))
+            (if (eq (get-text-property end-prev 'asm2src-id) id)
+                end-prev (point)))
+     :end (next-single-char-property-change point 'asm2src-id))))
 
 (defun asm2src--find-next-region ()
   "Move point to the next region mapped to a file, and return it or nil.
@@ -223,6 +228,11 @@ On failure, nil is returned and the point will be moved to `point-min'."
 (defun asm2src-jump (&optional filename)
   "Jump to source from current ASM buffer.
 This displays temporary overlays showing source file names.
+
+If FILENAME is given, only show source overlays for that file.
+Interactively, FILENAME can be given by using the prefix
+argument.
+
 While the overlays are active, you can press keys to move to
 next/previous overlay or to jump to this source line in another
 window:
@@ -257,8 +267,9 @@ window:
             (progn
               (when filename
                 (dolist (ov overlays)
-                  (unless (equal (get-text-property (overlay-start ov) 'asm2src-file)
-                                 filename)
+                  (unless (equal
+                           (get-text-property (overlay-start ov) 'asm2src-file)
+                           filename)
                     (overlay-put ov 'display "\n")
                     (overlay-put ov 'before-string nil))))
 
@@ -329,7 +340,8 @@ window:
                   (cl-loop
                    for region = (asm2src--find-next-region)
                    while region
-                   for region-file = (asm2src--find-mapped-file (plist-get region :file))
+                   for region-file
+                   = (asm2src--find-mapped-file (plist-get region :file))
                    for region-line = (plist-get region :line)
                    if (and (file-equal-p region-file filename)
                            (= region-line current-line))

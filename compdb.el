@@ -30,7 +30,7 @@
 ;;
 ;; `compdb'
 ;;
-;;   Get parsed compilation database for a project. The return value is either
+;;   Get parsed compilation database for a project.  The return value is either
 ;; nil if the database does not exist, or a hash table.
 ;;
 ;; `compdb-compile'
@@ -39,7 +39,7 @@
 ;;
 ;; `compdb-switch'
 ;;
-;;   Switch the current compilation database. This works by replacing the
+;;   Switch the current compilation database.  This works by replacing the
 ;;   current compilation database with a symbolic link to the new database.
 
 ;;; Code:
@@ -102,12 +102,13 @@ entries for that file.  The values are in the form of plists."
                                              nil (point-max)))
                                   (progress-reporter-update pr)
                                   (setq json-value (json-read))
-                                  (cl-loop for entry across json-value
-                                           for file = (expand-file-name
-                                                       (plist-get entry :file)
-                                                       (plist-get entry :directory))
-                                           do (puthash file entry htab)
-                                           (progress-reporter-update pr (point))))
+                                  (cl-loop
+                                   for entry across json-value
+                                   for file = (expand-file-name
+                                               (plist-get entry :file)
+                                               (plist-get entry :directory))
+                                   do (puthash file entry htab)
+                                   (progress-reporter-update pr (point))))
                               (progress-reporter-done pr))
                             htab)))
                   compdb--cache)))))))

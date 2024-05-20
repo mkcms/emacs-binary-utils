@@ -38,3 +38,6 @@ jobs:
 
       - name: Tests
         run: make check
+
+      - name: Lint
+        run: make lint

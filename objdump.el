@@ -374,7 +374,9 @@ where
                 (unwind-protect
                     (pcase-dolist
                         (`(,start ,end ,re)
-                         `((,syms-start ,syms-end ,objdump--symtab-entry-regexp)
+                         `((,syms-start
+                            ,syms-end
+                            ,objdump--symtab-entry-regexp)
                            (,dynsyms-start
                             ,dynsyms-end
                             ,objdump--dynamic-symtab-entry-regexp)))
@@ -384,7 +386,8 @@ where
                         (goto-char (line-beginning-position))
                         (when (re-search-forward
                                re (min (line-end-position) end) t)
-                          (let ((address (string-to-number (match-string 1) 16))
+                          (let ((address
+                                 (string-to-number (match-string 1) 16))
                                 (flags (objdump--parse-symbol-flags
                                         (match-string 2)))
                                 (section (match-string 3))
@@ -479,10 +482,11 @@ where
   "Alist mapping objdump executable to a list of extra arguments.
 The extra arguments are passed to objdump's disassembly command.")
 
-(cl-defun objdump-disassemble (filename &optional section start-address stop-address
-                                        &key demangle
-                                        reloc
-                                        (hide-raw-insn t))
+(cl-defun objdump-disassemble
+    (filename &optional section start-address stop-address
+              &key demangle
+              reloc
+              (hide-raw-insn t))
   "Disassemble SECTION in FILENAME between START-ADDRESS and STOP-ADDRESS.
 The disassembled output is inserted in the current buffer after
 point.
@@ -630,7 +634,8 @@ where
                         "Objdump address range started at 0x%x (wanted 0x%x)"
                         addr start-address)))
                  (when (/= addr (+ dumped-address 16))
-                   (error "Objdump missed address 0x%x" (+ dumped-address 16))))
+                   (error "Objdump missed address 0x%x"
+                          (+ dumped-address 16))))
             (setq dumped-address addr)
 
             for byte-string = (replace-regexp-in-string " " ""

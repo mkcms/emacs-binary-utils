@@ -1,4 +1,7 @@
 emacs ?= emacs
+
+SHELL := /bin/bash
+
 FILES :=                        \
         asm-data-test.el        \
         asm-data.el             \
@@ -42,6 +45,29 @@ check: compile
 	${emacs} -Q --batch ${PACKAGE_INIT} -L .                              \
 	    --eval '(setq byte-compile-error-on-warn t)'                      \
 	    -f batch-byte-compile $<
+
+lint:
+	set -e;                                                               \
+	files=(                                                               \
+	  asm-data.el                                                         \
+	  asm-jump.el                                                         \
+	  asm-x86.el                                                          \
+	  asm2src.el                                                          \
+	  binfile.el                                                          \
+	  compdb.el                                                           \
+	  compiled-file.el                                                    \
+	  objdump.el                                                          \
+	);                                                                    \
+	for f in $${files[@]}; do                                             \
+	    lint=$$(mktemp)                                                   \
+	    && ${emacs} -Q --batch $$f                                        \
+		--eval '(checkdoc-file (buffer-file-name))' 2>&1 | tee $$lint \
+	    && test -z "$$(cat $$lint)";                                      \
+	done;                                                                 \
+	for f in $${files[@]}; do                                             \
+	    sed '1{s/.*//}' $$f | grep -n -E "^.{80,}" `# Catch long lines`   \
+	    | sed  -r 's/^([0-9]+).*/'$$f':\1: Too long/;q1';                 \
+	done
 
 clean:
 	rm -f *.elc

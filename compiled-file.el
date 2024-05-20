@@ -80,6 +80,7 @@ It is called with a single argument FILENAME.")
                                        (buffer-file-name)))))
 
 (defun compiled-file-find (filename)
+  "Find the compiled file for FILENAME by scanning the directory tree."
   (let* ((name
           (file-name-nondirectory
            (file-name-sans-extension filename)))

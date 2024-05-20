@@ -186,7 +186,9 @@ completion providers.")
 ;; Symbol at point; reading symbols
 
 (defun binfile--demangled-symbols (filename &optional include-empty)
-  "Read demangled symbols from file named FILENAME."
+  "Read demangled symbols from file named FILENAME.
+If INCLUDE-EMPTY is non-nil, don't filter-out empty (no size
+prop) symbols."
   (map-apply
    (lambda (_k v) (plist-get (car v) :demangled))
    (map-filter
@@ -386,8 +388,9 @@ The groups are:
             (while (and handler (null did-replace))
               (let ((func (pop handler)))
                 (setq did-replace
-                      (funcall func reloc-type reloc reloc-address reloc-addend-nr
-                               function-name))
+                      (funcall
+                       func reloc-type reloc reloc-address reloc-addend-nr
+                       function-name))
 
                 ;; Add information about this relocation on this line, for
                 ;; debugging
@@ -450,7 +453,8 @@ The groups are:
   "Remove boring comments."
   (while (re-search-forward "# +[0-9a-f]+ *$" nil t) (replace-match "")))
 
-(defun binfile-postprocess-unused-symbolic-local-references (_beg _end function-name)
+(defun binfile-postprocess-unused-symbolic-local-references
+    (_beg _end function-name)
   "Remove useless symbolic references with offsets to FUNCTION-NAME.
 E.g. this removes all instances of '<foo()+0x123af>'."
   (while (re-search-forward
@@ -500,9 +504,10 @@ Group 1 is the symbol.")
             (funcall func (point-min) (point-max) name))))
 
       (when-let* ((fmt binfile-file-format)
-                  (func (cdr (cl-find-if (lambda (re) (string-match-p re fmt))
-                                         binfile-arch-postprocessing-function-alist
-                                         :key #'car))))
+                  (func (cdr (cl-find-if
+                              (lambda (re) (string-match-p re fmt))
+                              binfile-arch-postprocessing-function-alist
+                              :key #'car))))
         (save-excursion (funcall func beg end name)))
 
       (delete-trailing-whitespace (point-min) (point-max)))))
@@ -545,11 +550,12 @@ Returns TARGET."
 (defvar binfile--symbol)
 
 (defvar binfile-file-format nil
-  "Disassembled file format string, e.g. \"elf64-x86-64\"")
+  "Disassembled file format string, e.g. \"elf64-x86-64\".")
 
 (defun binfile--disassemble (symbol section filename start-address end-address
                                     &optional demangle)
-  "Disassemble SYMBOL in SECTION of FILENAME between START-ADDRESS and END-ADDRESS."
+  "Disassemble SYMBOL in SECTION of FILENAME between START-ADDRESS:END-ADDRESS.
+If DEMANGLE is non-nil, don't demangle symbols."
   (setq binfile--file filename)
   (setq binfile--symbol symbol)
   (if demangle
@@ -559,7 +565,8 @@ Returns TARGET."
                        :demangle demangle
                        :reloc t)
   (goto-char (point-min))
-  (when binfile-disassembly-prologue (insert binfile-disassembly-prologue "\n"))
+  (when binfile-disassembly-prologue
+    (insert binfile-disassembly-prologue "\n"))
   (setq binfile-file-format objdump-file-format)
 
   (save-excursion
@@ -625,7 +632,9 @@ Returns TARGET."
   "Disassemble SYMBOL in object FILENAME.
 Interactively, this selects the function at point and the proper
 object file.  If there are multiple candidates for disassembly,
-asks (with completion) to select the symbol to disassemble."
+asks (with completion) to select the symbol to disassemble.
+
+If MANGLED is non-nil, don't demangle symbols."
   (interactive (binfile--get-symbol-and-filename
                 "Disassemble symbol: " current-prefix-arg
                 nil
@@ -677,6 +686,7 @@ asks (with completion) to select the symbol to disassemble."
         (message "Note: object file is older than the source file")))))
 
 (defun binfile-toggle-name-mangling ()
+  "Disassemble the current buffer again, toggling mangling of symbol names."
   (interactive)
   (binfile-disassemble binfile--symbol binfile--file
                        (not (objdump-symbol-mangled-p binfile--symbol))))
@@ -686,7 +696,7 @@ asks (with completion) to select the symbol to disassemble."
 
 (defun binfile--get-raw-data-as-directives
     (filename section start-address stop-address)
-  "Get raw data from SECTION in FILENAME between START-ADDRESS and STOP-ADDRESS.
+  "Get raw data from SECTION in FILENAME between START-ADDRESS:STOP-ADDRESS.
 The return value is a list of conses (DIRECTIVE . VALUE), where
 both DIRECTIVE and VALUE are strings to insert in the disassembly buffer."
   (pcase-let ((`(,bytes ,relocs ,real-start-address)
@@ -751,19 +761,22 @@ both DIRECTIVE and VALUE are strings to insert in the disassembly buffer."
                  (cl-incf offset))
                (cons ".zero" (number-to-string (- offset start))))
 
-     else if (and (< offset (- length 8)) (not (funcall region-contains-relocs-p 8)))
-     collect (cons ".byte" (format "0x%x, 0x%x, 0x%x, 0x%x, 0x%x, 0x%x, 0x%x, 0x%x"
-                                   (seq-elt bytes offset)
-                                   (seq-elt bytes (+ offset 1))
-                                   (seq-elt bytes (+ offset 2))
-                                   (seq-elt bytes (+ offset 3))
-                                   (seq-elt bytes (+ offset 4))
-                                   (seq-elt bytes (+ offset 5))
-                                   (seq-elt bytes (+ offset 6))
-                                   (seq-elt bytes (+ offset 7))))
+     else if (and (< offset (- length 8))
+                  (not (funcall region-contains-relocs-p 8)))
+     collect (cons ".byte"
+                   (format "0x%x, 0x%x, 0x%x, 0x%x, 0x%x, 0x%x, 0x%x, 0x%x"
+                           (seq-elt bytes offset)
+                           (seq-elt bytes (+ offset 1))
+                           (seq-elt bytes (+ offset 2))
+                           (seq-elt bytes (+ offset 3))
+                           (seq-elt bytes (+ offset 4))
+                           (seq-elt bytes (+ offset 5))
+                           (seq-elt bytes (+ offset 6))
+                           (seq-elt bytes (+ offset 7))))
      and do (cl-incf offset 8)
 
-     else if (and (< offset (- length 4)) (not (funcall region-contains-relocs-p 4)))
+     else if (and (< offset (- length 4))
+                  (not (funcall region-contains-relocs-p 4)))
      collect (cons ".byte" (format "0x%x, 0x%x, 0x%x, 0x%x"
                                    (seq-elt bytes offset)
                                    (seq-elt bytes (+ offset 1))
@@ -775,7 +788,8 @@ both DIRECTIVE and VALUE are strings to insert in the disassembly buffer."
      collect (cons ".byte" (format "0x%x" (seq-elt bytes offset)))
      and do (cl-incf offset))))
 
-(defun binfile-insert-data (section address &optional stop-address offset symbol)
+(defun binfile-insert-data
+    (section address &optional stop-address offset symbol)
   "Dump contents of SECTION starting at ADDRESS in the ASM buffer.
 If STOP-ADDRESS is given, the dump stops at this address.
 
@@ -825,7 +839,8 @@ This is only for display purposes."
         (size (plist-get data :size))
         (size
          (if full
-             (let ((s (read-string "Size: " (and size (number-to-string size)))))
+             (let ((s (read-string "Size: "
+                                   (and size (number-to-string size)))))
                (if (string-match "0x\\([[:xdigit:]]+\\)" s)
                    (string-to-number (match-string 1 s) 16)
                  (string-to-number s)))

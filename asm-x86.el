@@ -39,21 +39,23 @@ This returns a string like \"reloc+0x1a\".  ADDEND can be nil."
             "")))
 
 (defun asm-x86--reloc-replace-0x0 (_type reloc _address addend _function-name)
-  "Simply replace the string \"0x0\" with the relocation name."
+  "Simply replace the string \"0x0\" with the relocation name, RELOC+ADDEND."
   (when (re-search-forward "\\b0x0\\b" nil t)
     ;; Check if we have another '0x0' and don't replace in that case.
     (unless (save-match-data (re-search-forward "\\b0x0\\b" nil t))
       (replace-match (asm-x86--format-reloc-and-addend reloc addend) nil t)
       t)))
 
-(defun asm-x86--reloc-replace-address-minus-addend (_type reloc address addend _function-name)
-  "Subtract ADDEND from the address and replace that address, if it exists."
+(defun asm-x86--reloc-replace-address-minus-addend
+    (_type reloc address addend _function-name)
+  "Subtract ADDEND from the ADDRESS and replace that with RELOC."
   (setq address (- address (or addend 0)))
   (save-excursion
     (goto-char (point-max))
     (when (re-search-backward (format "\\b%x\\b" address) nil t)
       (goto-char (match-beginning 0))
-      (unless (save-match-data (looking-back "^[[:space:]]+" (line-beginning-position)))
+      (unless (save-match-data
+                (looking-back "^[[:space:]]+" (line-beginning-position)))
         ;; Handle the case when we matched address of the instruction itself -
         ;; we don't want that.  We want to match an address _inside_ the
         ;; instruction.
@@ -62,14 +64,17 @@ This returns a string like \"reloc+0x1a\".  ADDEND can be nil."
 
 (defun asm-x86--reloc-replace-0x0-plus-addend-plus-4
     (_type reloc _address addend _function-name)
-  "Replace the string \"0x0\" with the relocation name, plus ADDEND, plus 4."
+  "Replace the string \"0x0\" with the RELOC+ADDEND, plus 4."
   (when (re-search-forward "\\b0x0\\b" nil t)
     ;; Only replace if we have exactly one '0x0'
     (unless (save-match-data (re-search-forward "\\b0x0\\b" nil t))
-      (replace-match (asm-x86--format-reloc-and-addend reloc (+ addend 4)) nil t)
+      (replace-match
+       (asm-x86--format-reloc-and-addend reloc (+ addend 4)) nil t)
       t)))
 
-(defun asm-x86--reloc-64 (reloc-type reloc reloc-address reloc-addend function-name)
+(defun asm-x86--reloc-64
+    (reloc-type reloc reloc-address reloc-addend function-name)
+  "Handle x64 RELOC-TYPE RELOC at RELOC-ADDRESS RELOC-ADDEND in FUNCTION-NAME."
   (pcase reloc-type
     ('"R_X86_64_PC32"
      (or (asm-x86--reloc-replace-address-minus-addend
@@ -90,6 +95,7 @@ This returns a string like \"reloc+0x1a\".  ADDEND can be nil."
       reloc-type reloc reloc-address reloc-addend function-name))))
 
 (defun asm-x86--data-reloc-64 (type reloc addend)
+  "Handle x64 TYPE RELOC with ADDEND."
   (pcase type
     ('"R_X86_64_64"
      (cons 8 (list
@@ -114,7 +120,8 @@ This returns a string like \"reloc+0x1a\".  ADDEND can be nil."
   (save-excursion
     ;; Intel syntax
     (while (re-search-forward
-            "\\(\\[rip\\+0x0]\\)\\([^\n]*\\)#\\s-*\\([^\n]*?\\)[[:space:]]*$" nil t)
+            "\\(\\[rip\\+0x0]\\)\\([^\n]*\\)#\\s-*\\([^\n]*?\\)[[:space:]]*$"
+            nil t)
       (replace-match "[rip+\\3]\\2")))
   (save-excursion
     ;; AT&T syntax
