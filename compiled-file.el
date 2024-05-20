@@ -4,7 +4,7 @@
 
 ;; Author: Michał Krzywkowski <k.michal@zoho.com>
 ;; Keywords: languages, tools
-;; Package-Requires: ((emacs "26"))
+;; Package-Requires: ((emacs "27"))
 
 ;; This program is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
@@ -33,6 +33,17 @@
 ;;; Code:
 
 (require 'project)
+
+;; `require'-ing these does not guarantee they are loaded as they are preloaded
+;; in Emacs.
+;;
+;; This hack was stolen from the built-in eglot.el.
+(eval-and-compile
+  (if (< emacs-major-version 28)
+      (load "project" nil 'nomessage)
+      (load "seq" nil 'nomessage)
+    (require 'project)
+    (require 'seq)))
 
 (defvar compiled-file-directory nil
   "Current build directory.
@@ -75,12 +86,8 @@ It is called with a single argument FILENAME.")
          (pattern
           (format "%s\\([.][^.]+\\)?[.]o$" (regexp-quote name)))
          (candidates
-          (if (>= emacs-major-version 27)
-              (directory-files-recursively
-               (compiled-file-directory) pattern nil t)
-            (ignore-errors
-              (directory-files-recursively
-               (compiled-file-directory) pattern)))))
+          (directory-files-recursively
+           (compiled-file-directory) pattern nil t)))
     (when (= 1 (length candidates))
       (car candidates))))
 

@@ -14,9 +14,25 @@ FILES :=                        \
 
 ELC := $(FILES:.el=.elc)
 
+PACKAGE_INIT := --eval '(package-initialize)'
+
+INSTALL_DEPENDENCIES := ${PACKAGE_INIT} --eval '(progn                        \
+	(load "seq" nil t)                                                    \
+	(load "project" nil t)                                                \
+	(unless (and (fboundp `seq-contains-p) (fboundp `project-root))       \
+	  (package-refresh-contents)                                          \
+	  (package-install (cadr (assoc `project package-archive-contents)))  \
+	  (package-install (cadr (assoc `seq package-archive-contents)))))'
+
 LIBS := $(patsubst %.el,-l %,${FILES})
 
 SELECTOR ?= .*
+
+.PHONY: deps
+deps:
+	${emacs} -Q --batch ${INSTALL_DEPENDENCIES}
+
+compile: deps ${ELC}
 
 check: compile
 	${emacs} -Q -L . ${LIBS} --batch                                      \
@@ -34,5 +50,3 @@ update-copyright-years:
 	year=`date +%Y`;                                                      \
 	sed -i *.el *.md -r                                                   \
 	  -e 's/Copyright \(C\) ([0-9]+)(-[0-9]+)?/Copyright (C) \1-'$$year'/'
-
-compile: ${ELC}

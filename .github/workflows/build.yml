@@ -14,7 +14,6 @@ jobs:
       fail-fast: false
       matrix:
         emacs_version:
-          - '26.3'
           - '27.1'
           - '28.2'
           - '29.1'
@@ -28,8 +27,11 @@ jobs:
         with:
           version: ${{ matrix.emacs_version }}
 
-      - name: Install required libraries
+      - name: Install system packages
         run: sudo apt-get update && sudo apt-get install -y libc6-dev-x32
+
+      - name: Install Emacs dependencies
+        run: make deps
 
       - name: Compile
         run: make compile

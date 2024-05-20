@@ -48,6 +48,15 @@
 (require 'json)
 (require 'subr-x)
 
+;; `require'-ing these does not guarantee they are loaded as they are preloaded
+;; in Emacs.
+;;
+;; This hack was stolen from the built-in eglot.el.
+(eval-and-compile
+  (if (< emacs-major-version 28)
+      (load "seq" nil 'nomessage)
+    (require 'seq)))
+
 (defvar compdb--cache (make-hash-table :test #'equal)
   "Cache of compilation databases.
 Keys are paths to compilation databases, values are the
