@@ -475,7 +475,7 @@ If BASE is non-nil, then numbers are output in that base."
           (push
            (cons original-directive
                  (replace-regexp-in-string
-                  "0\\(0+$\\)" "0"
+                  "[.]\\(0+$\\)" "0"
                   (format "%.17g" (asm-data--vector-to-float (take 4) 8 23))))
            ret))
 
