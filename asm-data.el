@@ -40,14 +40,14 @@
 ;; 	.2byte 0x006f
 ;;
 ;; It can convert data to .ascii, .asciz, .byte, .2byte, .4byte, .8byte, .octa
-;; (16-byte), .single and .zero GAS directives.
+;; (16-byte), .single, .double and .zero GAS directives.
 ;;
 ;; Directive aliases are also supported (.int, .long, .short, .hword, .float).
 ;;
 ;; Integers can be converted to unsigned/signed decimal/hex/binary
 ;; representation.
 ;;
-;; Floating-point directive .single assumes 32-bit floats.
+;; .single assumes 32-bit floats, and .double assumes 64-bit floats.
 ;;
 ;; The variable `asm-data-endianness' controls the type of numbers<->bytes
 ;; conversion.
@@ -80,6 +80,7 @@
               ".octa"                   ; 16-byte integer
 
               ".single" ".float"        ; 32 bit float
+              ".double"                 ; 64 bit float
 
               ".zero"
 
@@ -104,6 +105,8 @@
   "Data endianness: little or big."
   :type '(choice (const little) (const big))
   :safe #'symbolp)
+
+(define-error 'asm-data-conversion-error "Could not convert a value")
 
 (defun asm-data--alias (directive-or-alias)
   "Get the real directive for DIRECTIVE-OR-ALIAS."
@@ -169,7 +172,7 @@ like `read', but:
     (prog1 1.0e+INF (read (current-buffer))))
    ((eq '-inf (save-excursion (read (current-buffer))))
     (prog1 -1.0e+INF (read (current-buffer))))
-   ((member directive '(".single"))
+   ((member directive '(".single" ".double"))
     (float (read (current-buffer))))
    ((and (member directive '(".byte" ".2byte" ".4byte" ".8byte"))
          (looking-at-p "-"))
@@ -223,6 +226,8 @@ like `read', but:
     (asm-data--integer-to-vector value 16))
    ((and (string= directive ".single") (floatp value))
     (asm-data--float-to-vector value 8 23))
+   ((and (string= directive ".double") (floatp value))
+    (asm-data--float-to-vector value 11 52))
    ((and (string= directive ".zero") (integerp value) (>= value 0))
     (make-vector value 0))
    (t (error "Invalid value for directive %S: %S" directive value))))
@@ -313,7 +318,8 @@ like `read', but:
 
       (pcase-let ((`(,nbytes . ,directive)
                    (pcase-exhaustive (+ 1 exponent-bits significand-bits)
-                     ('32 '(4 . ".4byte")))))
+                     ('32 '(4 . ".4byte"))
+                     ('64 '(8 . ".8byte")))))
         (asm-data--integer-to-vector
          (asm-data--read-value-from-current-buffer directive) nbytes)))))
 
@@ -349,9 +355,15 @@ like `read', but:
        (ldexp significand (- (1- max-exponent)))
        signbit))
      (t
-      (copysign
-       (ldexp (1+ significand) (- exponent max-exponent))
-       signbit)))))
+      (let ((value
+             (copysign
+              (ldexp (1+ significand) (- exponent max-exponent))
+              signbit)))
+        (if (or (member value '(+1.0e+INF -1.0e+INF))
+                (isnan value))
+            (signal 'asm-data-conversion-error
+                    `(float-to-vector ,vector ,value))
+          value))))))
 
 (defun asm-data--byte-to-hex (byte)
   "Make a 2-char hexadecimal string for number BYTE."
@@ -406,10 +418,10 @@ If SIGNED is non-nil, then numbers are output as signed integers.
 
 If BASE is non-nil, then numbers are output in that base."
   (cl-labels ((take
-               (n)
-               (let ((first (seq-subseq bytes 0 n)))
-                 (setq bytes (seq-subseq bytes n))
-                 first)))
+                (n)
+                (let ((first (seq-subseq bytes 0 n)))
+                  (setq bytes (seq-subseq bytes n))
+                  first)))
     (let (ret (original-directive directive))
       (setq directive (asm-data--alias directive))
       (while (> (length bytes) 0)
@@ -478,6 +490,29 @@ If BASE is non-nil, then numbers are output in that base."
                   "[.]\\(0+$\\)" "0"
                   (format "%.17g" (asm-data--vector-to-float (take 4) 8 23))))
            ret))
+
+         ((and (string= directive ".double") (>= (length bytes) 8))
+          (let ((val (take 8)))
+            (condition-case err
+                (push
+                 (cons original-directive
+                       (replace-regexp-in-string
+                        "[.]\\(0+$\\)" "0"
+                        (format "%.32g"
+                                (asm-data--vector-to-float val 11 52))))
+                 ret)
+              (asm-data-conversion-error
+               ;; Fallback to bytes when we fail to convert
+               (display-warning 'asm-data
+                                (format "Failed to convert value to double: %s"
+                                        (cddr err))
+                                :warning)
+               (cl-loop
+                for byte across val
+                do (push (cons ".byte"
+                               (asm-data--vector-to-numeric-string
+                                (vector byte) signed base))
+                         ret))))))
 
          ((and (string= directive ".zero") (zerop (aref bytes 0)))
           (let* ((n (or (cl-position-if-not #'zerop bytes)
