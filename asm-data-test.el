@@ -622,7 +622,8 @@
                            asm-data--directives))
       (with-temp-buffer
         (pcase-dolist (`(,directive . ,val)
-                       (asm-data--do-conversion directive temp))
+                       (asm-data--do-conversion directive temp
+                                                (> (abs (% (random) 2)) 0)))
           (insert "	" directive " " val "\n"))
         (goto-char (point-min))
         (setq temp (asm-data--to-bytes (asm-data--at-point)))
