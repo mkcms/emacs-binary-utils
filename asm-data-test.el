@@ -194,13 +194,9 @@
                    (asm-data-test--binary-str-to-bytes
                     "11111111100000000000000000000000" 4)))
 
-    (should (equal (asm-data--to-bytes ".single nan")
-                   (asm-data-test--binary-str-to-bytes
-                    "01111111110000000000000000000000" 4)))
+    (should-error (asm-data--to-bytes ".single nan"))
 
-    (should (equal (asm-data--to-bytes ".single -nan")
-                   (asm-data-test--binary-str-to-bytes
-                    "11111111110000000000000000000000" 4))))
+    (should-error (asm-data--to-bytes ".single -nan")))
 
   (let ((asm-data-endianness 'little))
 
@@ -547,11 +543,17 @@
     (should (equal (asm-data--do-conversion
                     ".single" (asm-data-test--binary-str-to-bytes
                                "01111111110000000000000000000000" 4))
-                   '((".single" . "nan"))))
+                   '((".byte" . "0")
+                     (".byte" . "0")
+                     (".byte" . "192")
+                     (".byte" . "127"))))
     (should (equal (asm-data--do-conversion
                     ".single" (asm-data-test--binary-str-to-bytes
                                "11111111110000000000000000000000" 4))
-                   '((".single" . "-nan")))))
+                   '((".byte" . "0")
+                     (".byte" . "0")
+                     (".byte" . "192")
+                     (".byte" . "255")))))
 
   (let ((asm-data-endianness 'little))
     (should (equal (asm-data--do-conversion
@@ -570,13 +572,27 @@
                     ".double"
                     (asm-data-test--binary-str-to-bytes
                      "0111111111111111111111111111111111111111111111111111111111111111" 8))
-                   '((".double" . "nan"))))
+                   '((".byte" . "255")
+                     (".byte" . "255")
+                     (".byte" . "255")
+                     (".byte" . "255")
+                     (".byte" . "255")
+                     (".byte" . "255")
+                     (".byte" . "255")
+                     (".byte" . "127"))))
 
     (should (equal (asm-data--do-conversion
                     ".double"
                     (asm-data-test--binary-str-to-bytes
                      "1111111111111111111111111111111111111111111111111111111111111111" 8))
-                   '((".double" . "-nan")))))
+                   '((".byte" . "255")
+                     (".byte" . "255")
+                     (".byte" . "255")
+                     (".byte" . "255")
+                     (".byte" . "255")
+                     (".byte" . "255")
+                     (".byte" . "255")
+                     (".byte" . "255")))))
 
   (should (equal (asm-data--do-conversion ".zero" [0 0 0 0 0])
                  '((".zero" . "5"))))
@@ -596,7 +612,9 @@
 (ert-deftest asm-data-conversion-repeated ()
   (let* ((data (vconcat (string-to-vector "The initial data")
                         (cl-loop for i from 0 to 255
-                                 vconcat (vector i))))
+                                 vconcat (vector i))
+                        (make-vector 8 255)
+                        (make-vector 8 0)))
          (temp (purecopy data))
          directive)
     (dotimes (_ 100)

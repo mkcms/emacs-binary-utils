@@ -275,9 +275,7 @@ like `read', but:
         (insert (make-string exponent-bits ?1))
         (insert (make-string significand-bits ?0)))
        ((isnan number)
-        (insert (make-string exponent-bits ?1))
-        (insert "1")
-        (insert (make-string (1- significand-bits) ?0)))
+        (signal 'asm-data-conversion-error `(float-to-vector ,number nan)))
        ((= number 0.0)
         (insert (make-string (+ exponent-bits significand-bits) ?0)))
        (subnormal-p
@@ -343,7 +341,8 @@ like `read', but:
            (or (null (cl-position ?0 sbits))
                (and (eq 0 (cl-position ?1 sbits))
                     (= 1 (cl-count ?1 sbits)))))
-      (copysign +1.0e+NaN signbit))
+      (signal 'asm-data-conversion-error
+              `(float-to-vector ,vector nan)))
      ((and (null (cl-position ?0 exbits))
            (null (cl-position ?1 sbits)))
       (copysign +1.0e+INF signbit))
@@ -484,12 +483,26 @@ If BASE is non-nil, then numbers are output in that base."
            ret))
 
          ((and (string= directive ".single") (>= (length bytes) 4))
-          (push
-           (cons original-directive
-                 (replace-regexp-in-string
-                  "[.]\\(0+$\\)" "0"
-                  (format "%.17g" (asm-data--vector-to-float (take 4) 8 23))))
-           ret))
+          (let ((val (take 4)))
+            (condition-case err
+                (push
+                 (cons original-directive
+                       (replace-regexp-in-string
+                        "[.]\\(0+$\\)" "0"
+                        (format "%.17g" (asm-data--vector-to-float val 8 23))))
+                 ret)
+              (asm-data-conversion-error
+               ;; Fallback to bytes when we fail to convert
+               (display-warning 'asm-data
+                                (format "Failed to convert value to float: %s"
+                                        (cddr err))
+                                :warning)
+               (cl-loop
+                for byte across val
+                do (push (cons ".byte"
+                               (asm-data--vector-to-numeric-string
+                                (vector byte) signed base))
+                         ret))))))
 
          ((and (string= directive ".double") (>= (length bytes) 8))
           (let ((val (take 8)))
