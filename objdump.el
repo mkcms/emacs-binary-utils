@@ -525,7 +525,7 @@ Arguments passed to objdump will also include the contents of
    (* space) (group (one-or-more hex-digit)) (1+ space)
 
    ;; Raw bytes
-   (group (** 1 4 (** 1 4 hex-digit hex-digit) space)) (1+ space)
+   (group (** 1 16 hex-digit hex-digit (? space))) (1+ space)
 
    ;; Hexdump
    (repeat 16 any)
