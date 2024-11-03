@@ -83,10 +83,10 @@ objdump on every run.")
              if (and (functionp tester) (funcall tester binary))
              return program
 
-             else if (when-let ((output
-                                 (and (stringp tester)
-                                      (shell-command-to-string
-                                       (format "%s -f %s" program binary)))))
+             else if (when-let* ((output
+                                  (and (stringp tester)
+                                       (shell-command-to-string
+                                        (format "%s -f %s" program binary)))))
                        (and (string-match
                              ".*[^:\n]+:[[:space:]]+file format \\([^\n]*\\).*"
                              output)

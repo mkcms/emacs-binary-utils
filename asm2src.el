@@ -153,7 +153,7 @@ used to jump to source."
 The plist contains :file, :line, :beg, :end keys.
 
 The return value is nil if there is no mapped region at POINT."
-  (when-let ((id (get-text-property point 'asm2src-id)))
+  (when-let* ((id (get-text-property point 'asm2src-id)))
     (list
      :file (get-text-property point 'asm2src-file)
      :line (get-text-property point 'asm2src-line)
@@ -280,8 +280,8 @@ window:
 (defun asm2src-jump-to-source-file-at-point ()
   "Jump to source file at point."
   (interactive)
-  (if-let ((file (get-text-property (point) 'asm2src-file))
-           (line (get-text-property (point) 'asm2src-line)))
+  (if-let* ((file (get-text-property (point) 'asm2src-file))
+            (line (get-text-property (point) 'asm2src-line)))
       (progn
         (setq file (asm2src--find-mapped-file file))
         (with-current-buffer

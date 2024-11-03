@@ -625,9 +625,9 @@ Interactively, with a negative numeric prefix argument, printed
 numbers may be negative.  With a numeric prefix argument BASE,
 the numbers are printed in that base.  Only BASE 2 and 16 are allowed."
   (interactive
-   (if-let ((reg (or
-                  (if (region-active-p) (car (region-bounds))
-                    (bounds-of-thing-at-point 'asm-data)))))
+   (if-let* ((reg (or
+                   (if (region-active-p) (car (region-bounds))
+                     (bounds-of-thing-at-point 'asm-data)))))
        (list (car reg) (cdr reg)
              (completing-read "Convert to representation: "
                               asm-data--directives)
@@ -664,7 +664,7 @@ the numbers are printed in that base.  Only BASE 2 and 16 are allowed."
   "Get the offset in bytes of POINT to start of asm-data in region BEG END.
 When INTERACTIVE, print how many bytes are before this line."
   (interactive
-   (if-let ((bounds (bounds-of-thing-at-point 'asm-data)))
+   (if-let* ((bounds (bounds-of-thing-at-point 'asm-data)))
        (list (car bounds) (cdr bounds) (line-beginning-position) t)
      (user-error "There is no asm-data at point")))
   (unless (<= beg point end)

@@ -204,8 +204,8 @@ prop) symbols."
 The return value is either nil or a cons (SYMBOL . OFFSET).
 OFFSET is always an integer.  SYMBOL is always demangled."
   (let ((pt (point)) found bounds)
-    (when-let ((symtab (and binfile--file
-                            (objdump-read-symtab binfile--file))))
+    (when-let* ((symtab (and binfile--file
+                             (objdump-read-symtab binfile--file))))
       (when (< (hash-table-count symtab)
                binfile-scan-for-symbol-at-point-limit)
         (catch 'done
@@ -225,9 +225,9 @@ OFFSET is always an integer.  SYMBOL is always demangled."
              symtab)))))
 
     (save-match-data
-      (when-let ((bounds (or bounds (bounds-of-thing-at-point 'symbol)))
-                 (symbol (or found (thing-at-point 'symbol t)))
-                 (offset 0))
+      (when-let* ((bounds (or bounds (bounds-of-thing-at-point 'symbol)))
+                  (symbol (or found (thing-at-point 'symbol t)))
+                  (offset 0))
         (when (string-match "\\([+-]\\)0x\\([[:xdigit:]]+\\)$" symbol)
           (setq offset (* (string-to-number (match-string 2 symbol) 16)
                           (if (string= "+" (match-string 1 symbol))
@@ -298,10 +298,10 @@ for caching purposes."
 
          (all-symbols
           (or
-           (when-let ((cache (alist-get (cons filename caller)
-                                        binfile--symbol-alist-cache
-                                        nil nil #'equal))
-                      (mtime (binfile--file-mtime filename)))
+           (when-let* ((cache (alist-get (cons filename caller)
+                                         binfile--symbol-alist-cache
+                                         nil nil #'equal))
+                       (mtime (binfile--file-mtime filename)))
              (and (equal mtime (car cache)) (cdr cache)))
            (mapcar (lambda (sym)
                      (cons (funcall symbol-transformer sym filename)
@@ -644,9 +644,9 @@ If MANGLED is non-nil, don't demangle symbols."
                 #'binfile-disassemble))
   (setq filename (expand-file-name filename))
   (pcase-let* ((`(,address ,size ,section)
-                (if-let ((entry (car (gethash
-                                      (objdump-mangle symbol)
-                                      (objdump-read-symtab filename)))))
+                (if-let* ((entry (car (gethash
+                                       (objdump-mangle symbol)
+                                       (objdump-read-symtab filename)))))
                     (list (plist-get entry :address)
                           (plist-get entry :size)
                           (plist-get entry :section))
@@ -812,12 +812,12 @@ This is only for display purposes."
                 (if (string= demangled section)
                     (format "Section %s" section)
                   (format "%s in section %s%s" demangled section
-                          (if-let ((interesting-flags
-                                    (delete nil
-                                            (list (when (memq 'function flags)
-                                                    "function")
-                                                  (when (memq 'object flags)
-                                                    "object")))))
+                          (if-let* ((interesting-flags
+                                     (delete nil
+                                             (list (when (memq 'function flags)
+                                                     "function")
+                                                   (when (memq 'object flags)
+                                                     "object")))))
                               (format " [%s]"
                                       (string-join interesting-flags
                                                    ", "))

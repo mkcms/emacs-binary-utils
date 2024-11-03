@@ -66,7 +66,7 @@ json-decoded databases.")
   "Locate database for FILENAME by scanning directory tree upwards.
 The return value is path to the database file, or nil if not found."
   (or filename (setq filename (or (buffer-file-name) default-directory)))
-  (when-let ((dir (locate-dominating-file filename "compile_commands.json")))
+  (when-let* ((dir (locate-dominating-file filename "compile_commands.json")))
     (expand-file-name "compile_commands.json" dir)))
 
 (defun compdb (&optional filename)
@@ -98,8 +98,8 @@ entries for that file.  The values are in the form of plists."
                                 (progn
                                   (insert-file-contents-literally path)
                                   (setq pr (make-progress-reporter
-                                             "Reading compilation database"
-                                             nil (point-max)))
+                                            "Reading compilation database"
+                                            nil (point-max)))
                                   (progress-reporter-update pr)
                                   (setq json-value (json-read))
                                   (cl-loop
@@ -122,8 +122,8 @@ entries for that file.  The values are in the form of plists."
   (or filename (setq filename (buffer-file-name))
       (error "Don't have a filename for current buffer"))
   (setq filename (expand-file-name filename))
-  (when-let ((db (compdb))
-             (file-sans-ext (file-name-sans-extension filename)))
+  (when-let* ((db (compdb))
+              (file-sans-ext (file-name-sans-extension filename)))
     (or (gethash filename db)
         (cl-loop for ext in compdb-fallback-extensions
                  for ent = (gethash (concat file-sans-ext ext) db)
@@ -156,7 +156,7 @@ argument), prompt the user to edit the command before running it."
 
 (defun compdb-output-filename (&optional filename)
   "Get the output filename (the object, .o file) for FILENAME."
-  (when-let ((ent (compdb-entry filename)))
+  (when-let* ((ent (compdb-entry filename)))
     (cond
      ((plist-get ent :output)
       (expand-file-name (plist-get ent :output)
@@ -178,14 +178,14 @@ argument), prompt the user to edit the command before running it."
 This works by replacing the current compilation database with a
 symbolic link to NEW-PATH."
   (interactive
-   (if-let ((current-path (compdb-path)))
+   (if-let* ((current-path (compdb-path)))
        (list (read-file-name
-               "Switch to compilation database: "
-               nil nil t nil
-               (lambda (name)
-                 (or (file-directory-p name)
-                     (string= (file-name-nondirectory name)
-                              "compile_commands.json")))))
+              "Switch to compilation database: "
+              nil nil t nil
+              (lambda (name)
+                (or (file-directory-p name)
+                    (string= (file-name-nondirectory name)
+                             "compile_commands.json")))))
      (user-error "Compile database not found")))
   (setq new-path (expand-file-name new-path))
   (when (file-directory-p new-path)
