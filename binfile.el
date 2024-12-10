@@ -644,9 +644,14 @@ If MANGLED is non-nil, don't demangle symbols."
                 #'binfile-disassemble))
   (setq filename (expand-file-name filename))
   (pcase-let* ((`(,address ,size ,section)
-                (if-let* ((entry (car (gethash
-                                       (objdump-mangle symbol)
-                                       (objdump-read-symtab filename)))))
+                (if-let* ((mangled-name (objdump-mangle symbol))
+                          (entry
+                           (or
+                            (car (gethash mangled-name
+                                          (objdump-read-symtab filename)))
+                            (car (gethash
+                                  (format ".hidden %s" mangled-name)
+                                  (objdump-read-symtab filename))))))
                     (list (plist-get entry :address)
                           (plist-get entry :size)
                           (plist-get entry :section))
