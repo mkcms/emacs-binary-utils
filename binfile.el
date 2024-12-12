@@ -464,6 +464,7 @@ E.g. this removes all instances of '<foo()+0x123af>'."
 
 (defvar binfile--symbolic-reference-regexp
   (rx
+   space
    word-boundary
    (1+ hex-digit) space
    ?<
