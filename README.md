@@ -4,6 +4,7 @@ This repository contains a bunch of Emacs packages for working with binary
 files:
 
 - [`binfile.el`](#binfileel---disassemble-binary-files)
+- [`bdx.el`](#bdxel---frontend-for-bdx)
 - [`objdump.el`](#objdumpel---a-library-for-working-with-objdump-utility)
 - [`asm-data.el`](#asm-datael---conversion-between-data-representations-in-asm-buffers)
 - [`asm-jump.el`](#asm-jumpel---buttons-for-jumps-in-asm-mode)
@@ -42,6 +43,46 @@ The other commands are:
 
   Prompt for a symbol and a binary filename, and display information about that
   symbol.
+
+
+## `bdx.el` - Frontend for bdx ##
+
+[bdx][bdx] is an indexer for ELF files.
+
+The `bdx.el` package provides an Emacs frontend for the command line tool, and
+allows quickly finding and disassembling symbols even in huge repositories.
+
+This package interactively displays a list of matched symbols as the user
+types.
+
+The commands defined in it are:
+
+- `bdx-disassemble`
+
+  Read a bdx query from the user with `ivy`, and use `binfile` (or a custom
+  function) to disassemble the selected symbol.
+
+- `bdx-show-graph-xdg-open`
+
+  Read two queries from user, START and GOAL, and use `bdx` to generate an
+  image of a graph that connects symbols matching START and GOAL, then display
+  that image.
+
+It also provides these API functions:
+
+- `bdx-query`
+
+  Read a bdx query from the user, interactively displaying results, and return
+  symbol data.
+
+- `bdx-generate-graph`
+
+  Generate graph from two queries, and write it (in DOT format) to the current
+  buffer.
+
+- `bdx-generate-graph-image`
+
+  Generate a graph image from two queries, and return it's path.
 
 ## `objdump.el` - A library for working with `objdump` utility ##
 
@@ -203,6 +244,9 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 ```
+
+[bdx]: https://github.com/mkcms/bdx
+
 <!-- Local Variables: -->
 <!-- coding: utf-8 -->
 <!-- fill-column: 79 -->

@@ -30,6 +30,26 @@ jobs:
       - name: Install system packages
         run: sudo apt-get update && sudo apt-get install -y libc6-dev-x32
 
+      - name: Install bdx
+        run: |
+          # Ubuntu<24
+          test -e /etc/apt/sources.list && \
+            sudo sed -i '/^deb/P;s/^deb/deb-src/' /etc/apt/sources.list
+          # Ubuntu>=24
+          sudo sed -i 's/^Types: deb/Types: deb deb-src/' /etc/apt/sources.list.d/*
+
+          sudo apt-get update
+          sudo apt-get install libxapian-dev python3-xapian xapian-tools
+
+          # Pygraphviz
+          sudo apt-get install graphviz graphviz-dev
+
+          sudo mkdir -p -m 777 /usr/local/src/bdx
+          cd /usr/local/src/
+          git clone https://github.com/mkcms/bdx.git
+          cd bdx
+          sudo pip install -e .[dev,graphs]
+
       - name: Install Emacs dependencies
         run: make deps
 

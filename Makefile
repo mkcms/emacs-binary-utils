@@ -8,6 +8,8 @@ FILES :=                        \
         asm-jump.el             \
         asm-x86.el              \
         asm2src.el              \
+        bdx-test.el             \
+        bdx.el                  \
         binfile-test.el         \
         binfile.el              \
         compdb.el               \
@@ -17,7 +19,7 @@ FILES :=                        \
 
 ELC := $(FILES:.el=.elc)
 
-PACKAGE_INIT := --eval '(package-initialize)'
+PACKAGE_INIT := -f package-initialize
 
 INSTALL_DEPENDENCIES := ${PACKAGE_INIT} --eval '(progn                        \
 	(load "seq" nil t)                                                    \
@@ -25,7 +27,10 @@ INSTALL_DEPENDENCIES := ${PACKAGE_INIT} --eval '(progn                        \
 	(unless (and (fboundp `seq-contains-p) (fboundp `project-root))       \
 	  (package-refresh-contents)                                          \
 	  (package-install (cadr (assoc `project package-archive-contents)))  \
-	  (package-install (cadr (assoc `seq package-archive-contents)))))'
+	  (package-install (cadr (assoc `seq package-archive-contents))))     \
+	(unless (package-installed-p `ivy)                                    \
+	  (package-refresh-contents)                                          \
+	  (package-install `ivy)))'
 
 LIBS := $(patsubst %.el,-l %,${FILES})
 
@@ -38,7 +43,7 @@ deps:
 compile: deps ${ELC}
 
 check: compile
-	${emacs} -Q -L . ${LIBS} --batch                                      \
+	${emacs} -Q -L .  --batch ${PACKAGE_INIT} ${LIBS}                     \
 	    --eval '(ert-run-tests-batch-and-exit "${SELECTOR}")'
 
 %.elc: %.el
@@ -53,6 +58,7 @@ lint:
 	  asm-jump.el                                                         \
 	  asm-x86.el                                                          \
 	  asm2src.el                                                          \
+	  bdx.el                                                              \
 	  binfile.el                                                          \
 	  compdb.el                                                           \
 	  compiled-file.el                                                    \
