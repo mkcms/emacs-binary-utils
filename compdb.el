@@ -181,7 +181,7 @@ symbolic link to NEW-PATH."
    (if-let* ((current-path (compdb-path)))
        (list (read-file-name
               "Switch to compilation database: "
-              nil nil t nil
+              nil nil t (file-chase-links current-path)
               (lambda (name)
                 (or (file-directory-p name)
                     (string= (file-name-nondirectory name)
