@@ -192,5 +192,181 @@ int main() { return foo(1); }
         (should (search-forward "quux:"))
         (should (search-forward "bar+0x7"))))))
 
+(ert-deftest binfile-postprocess-relocations ()
+  (with-temp-buffer
+    (insert "0000000000000000 <f()>:
+   0:	endbr64
+   4:	sub    rsp,0x8
+   8:	call   d <f()+0xd>
+			9: R_X86_64_PLT32	g()-0x4
+   d:	add    eax,DWORD PTR [rip+0x0]        # 13 <f()+0x13>
+			f: R_X86_64_PC32	h-0x4
+  13:	add    rsp,0x8
+  17:	ret
+")
+    (goto-char (point-min))
+    (binfile-postprocess-relocations (point-min) (point-max) "f()")
+
+    (should (string= (buffer-string)
+                     "0000000000000000 <f()>:
+   0:	endbr64
+   4:	sub    rsp,0x8
+   8:	call   g() <f()+0xd>
+   d:	add    eax,DWORD PTR [rip+0x0]        # h <f()+0x13>
+  13:	add    rsp,0x8
+  17:	ret
+"))))
+
+(ert-deftest binfile-postprocess-local-jumps ()
+  (with-temp-buffer
+    (insert "
+0000000000000000 <func>:
+   0:	endbr64
+   4:	test   edi,edi
+   6:	jle    20 <func+0x20>
+   8:	test   esi,esi
+   a:	jns    18 <func+0x18>
+   c:	mov    eax,0x1
+  11:	ret
+  12:	nop    WORD PTR [rax+rax*1+0x0]
+  18:	mov    eax,0x2
+  1d:	ret
+  1e:	xchg   ax,ax
+  20:	test   esi,esi
+  22:	js     30 <func+0x30>
+  24:	mov    eax,0x4
+  29:	ret
+  2a:	nop    WORD PTR [rax+rax*1+0x0]
+  30:	mov    eax,0x3
+  35:	ret
+")
+    (goto-char (point-min))
+    (binfile-postprocess-local-jumps (point-min) (point-max) "func")
+
+    (should (string= (buffer-string)
+                     "
+0000000000000000 <func>:
+   0:	endbr64
+   4:	test   edi,edi
+   6:	jle   .L1
+   8:	test   esi,esi
+   a:	jns   .L2
+   c:	mov    eax,0x1
+  11:	ret
+  12:	nop    WORD PTR [rax+rax*1+0x0]
+.L2:
+  18:	mov    eax,0x2
+  1d:	ret
+  1e:	xchg   ax,ax
+.L1:
+  20:	test   esi,esi
+  22:	js    .L3
+  24:	mov    eax,0x4
+  29:	ret
+  2a:	nop    WORD PTR [rax+rax*1+0x0]
+.L3:
+  30:	mov    eax,0x3
+  35:	ret
+"
+))))
+
+(ert-deftest binfile-postprocess-strip-addresses ()
+  (with-temp-buffer
+    (insert "
+0000000000000000 <func>:
+   0:	endbr64
+   4:	test   edi,edi
+   6:	jle    20 <func+0x20>
+   8:	test   esi,esi
+   a:	jns    18 <func+0x18>
+   c:	mov    eax,0x1
+  11:	ret
+  12:	nop    WORD PTR [rax+rax*1+0x0]
+  18:	mov    eax,0x2
+  1d:	ret
+  1e:	xchg   ax,ax
+  20:	test   esi,esi
+  22:	js     30 <func+0x30>
+  24:	mov    eax,0x4
+  29:	ret
+  2a:	nop    WORD PTR [rax+rax*1+0x0]
+  30:	mov    eax,0x3
+  35:	ret
+")
+    (goto-char (point-min))
+    (binfile-postprocess-strip-addresses (point-min) (point-max) "func")
+
+    (should (string= (buffer-string)
+                     "
+0000000000000000 <func>:
+	endbr64
+	test   edi,edi
+	jle    20 <func+0x20>
+	test   esi,esi
+	jns    18 <func+0x18>
+	mov    eax,0x1
+	ret
+	nop    WORD PTR [rax+rax*1+0x0]
+	mov    eax,0x2
+	ret
+	xchg   ax,ax
+	test   esi,esi
+	js     30 <func+0x30>
+	mov    eax,0x4
+	ret
+	nop    WORD PTR [rax+rax*1+0x0]
+	mov    eax,0x3
+	ret
+"))))
+
+(ert-deftest binfile-postprocess-unused-symbolic-local-references ()
+  (with-temp-buffer
+    (insert "
+0000000000000000 <func>:
+   0:	endbr64
+   4:	test   edi,edi
+   6:	jle    20 <func+0x20>
+   8:	test   esi,esi
+   a:	jns    18 <func+0x18>
+   c:	mov    eax,0x1
+  11:	ret
+  12:	nop    WORD PTR [rax+rax*1+0x0]
+  18:	mov    eax,0x2
+  1d:	ret
+  1e:	xchg   ax,ax
+  20:	test   esi,esi
+  22:	js     30 <func+0x30>
+  24:	mov    eax,0x4
+  29:	ret
+  2a:	nop    WORD PTR [rax+rax*1+0x0]
+  30:	mov    eax,0x3
+  35:	ret
+")
+    (goto-char (point-min))
+    (binfile-postprocess-unused-symbolic-local-references (point-min) (point-max) "func")
+
+    (should (string= (buffer-string)
+                     "
+0000000000000000 <func>:
+   0:	endbr64
+   4:	test   edi,edi
+   6:	jle    20 
+   8:	test   esi,esi
+   a:	jns    18 
+   c:	mov    eax,0x1
+  11:	ret
+  12:	nop    WORD PTR [rax+rax*1+0x0]
+  18:	mov    eax,0x2
+  1d:	ret
+  1e:	xchg   ax,ax
+  20:	test   esi,esi
+  22:	js     30 
+  24:	mov    eax,0x4
+  29:	ret
+  2a:	nop    WORD PTR [rax+rax*1+0x0]
+  30:	mov    eax,0x3
+  35:	ret
+"))))
+
 (provide 'binfile-test)
 ;;; binfile-test.el ends here
