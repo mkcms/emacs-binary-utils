@@ -119,6 +119,39 @@ int foo() { return bar(); }
       (should (search-forward "foo():"))
       (should (re-search-forward "call[[:space:]]+bar()")))))
 
+(ert-deftest binfile-sets-local-variables ()
+  (binfile-test
+      "
+int foo(int x) { return x + 1; }
+"
+      "file.o" "gcc" '("-c")
+    (make-directory "subdir_1")
+    (make-directory "subdir_2")
+    (copy-file "file.o" "subdir_1/file.o")
+    (copy-file "file.o" "subdir_2/file.o")
+
+    (with-temp-file "subdir_1/.dir-locals.el"
+      (print '((nil . ((foo-var . var-for-subdir-1)))) (current-buffer)))
+    (with-temp-file "subdir_2/.dir-locals.el"
+      (print '((nil . ((foo-var . var-for-subdir-2)))) (current-buffer)))
+    (with-temp-file ".dir-locals.el"
+      (print '((nil . ((foo-var . var-for-top-level)))) (current-buffer)))
+
+    (put 'foo-var 'safe-local-variable #'symbolp)
+
+    (binfile-disassemble "foo" "file.o")
+    (with-current-buffer binfile-disassembly-buffer
+      (should (boundp 'foo-var))
+      (should (eq (symbol-value 'foo-var) 'var-for-top-level)))
+    (binfile-disassemble "foo" "subdir_1/file.o")
+    (with-current-buffer binfile-disassembly-buffer
+      (should (boundp 'foo-var))
+      (should (eq (symbol-value 'foo-var) 'var-for-subdir-1)))
+    (binfile-disassemble "foo" "subdir_2/file.o")
+    (with-current-buffer binfile-disassembly-buffer
+      (should (boundp 'foo-var))
+      (should (eq (symbol-value 'foo-var) 'var-for-subdir-2)))))
+
 (ert-deftest binfile-insert-raw-data ()
   (binfile-test
       "

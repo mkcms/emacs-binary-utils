@@ -685,6 +685,7 @@ If MANGLED is non-nil, don't demangle symbols."
       (display-buffer (current-buffer))
 
       (run-hooks 'binfile-disassembly-hook)
+      (hack-local-variables)
 
       (when (and source-file
                  (time-less-p (binfile--file-mtime filename)
