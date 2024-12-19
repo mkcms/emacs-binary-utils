@@ -405,7 +405,7 @@ The graph is output to OUTPUT-BUFFER, or the current buffer if that's nil."
                             (prog1 (json-read)
                               (delete-region
                                (line-beginning-position)
-                               (max (1+ (point)) (point-max))))))))
+                               (min (1+ (point)) (point-max))))))))
 
                  do (pcase progress-msg
                       ((map (:done (and done (pred integerp)))
