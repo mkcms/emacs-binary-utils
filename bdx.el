@@ -93,6 +93,8 @@
   "The verbosity level.
 Higher values mean more \\='-v\\=' flags added to each invocation of bdx.")
 
+(defconst bdx-stderr-buffer "*bdx-stderr*")
+
 (defun bdx--command (subcommand &rest args)
   "Generate a list of arguments to bdx SUBCOMMAND with ARGS.
 The return value is a list where the first element is
@@ -103,13 +105,18 @@ SUBCOMMAND followed by ARGS.
 The ARGS list is filtered out to keep only non-nil values."
   (with-current-buffer (or (ignore-errors (get-buffer bdx--query-buffer))
                            (current-buffer))
-    `(,bdx-program
-      ,subcommand
-      ,@(and (cl-plusp bdx-verbosity)
-             (list (concat "-" (make-string bdx-verbosity ?v))))
-      ,@(and bdx-binary-directory (list "-d" bdx-binary-directory))
-      ,@(and bdx-index-path (list "--index-path" bdx-index-path))
-      ,@(delq nil args))))
+    (let ((cmd
+           `(,bdx-program
+             ,subcommand
+             ,@(and (cl-plusp bdx-verbosity)
+                    (list (concat "-" (make-string bdx-verbosity ?v))))
+             ,@(and bdx-binary-directory (list "-d" bdx-binary-directory))
+             ,@(and bdx-index-path (list "--index-path" bdx-index-path))
+             ,@(delq nil args))))
+      (with-current-buffer (get-buffer-create bdx-stderr-buffer)
+        (let ((inhibit-read-only t))
+          (princ (format "Command: %S\n" cmd) (current-buffer))))
+      cmd)))
 
 
 ;; Searching
@@ -117,8 +124,6 @@ The ARGS list is filtered out to keep only non-nil values."
 (defvar bdx--callback nil)
 (defvar bdx--done-callback nil)
 (defvar bdx--error-callback nil)
-
-(defconst bdx-stderr-buffer "*bdx-stderr*")
 
 (defun bdx--read-sexp ()
   "Read the current buffer or return nil, leaving point unmodified."
