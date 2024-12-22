@@ -156,7 +156,9 @@ The ARGS list is filtered out to keep only non-nil values."
         bdx--error-callback
         (with-current-buffer (get-buffer-create bdx-stderr-buffer)
           (goto-char (point-max))
-          (re-search-backward "^Process " nil t)
+          (when (looking-back "^Process.*\n" nil)
+            (forward-line -1)
+            (back-to-indentation))
           (let ((string (buffer-substring (point-min) (point))))
             (if (string-match "\\([Ee]rror: .*\\)" string)
                 (match-string 1 string)
