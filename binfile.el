@@ -568,6 +568,7 @@ If DEMANGLE is non-nil, don't demangle symbols."
   (goto-char (point-min))
   (when binfile-disassembly-prologue
     (insert binfile-disassembly-prologue "\n"))
+  (insert ".file \"" filename "\"\n")
   (setq binfile-file-format objdump-file-format)
 
   (save-excursion

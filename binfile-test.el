@@ -87,6 +87,7 @@ int foo(int x) { return x + 1; }
     (binfile-disassemble "foo" "file.o")
     (with-current-buffer binfile-disassembly-buffer
       (goto-char (point-min))
+      (should (search-forward (format ".file %S" (expand-file-name "file.o"))))
       (should (search-forward ".section .text"))
       (should (search-forward "foo:"))
       (should (search-forward "ret")))))
@@ -100,6 +101,7 @@ int foo(int x) { return x + 1; }
     (binfile-disassemble "_Z3fooi" "file.o")
     (with-current-buffer binfile-disassembly-buffer
       (goto-char (point-min))
+      (should (search-forward (format ".file %S" (expand-file-name "file.o"))))
       (should (search-forward ".section .text"))
       (should (search-forward "foo(int):"))
       (should (search-forward "ret")))))

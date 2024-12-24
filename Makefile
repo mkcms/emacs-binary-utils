@@ -43,7 +43,7 @@ deps:
 compile: deps ${ELC}
 
 check: compile
-	${emacs} -Q -L .  --batch ${PACKAGE_INIT} ${LIBS}                     \
+	${emacs} -Q --batch ${PACKAGE_INIT} -L . ${LIBS}                      \
 	    --eval '(ert-run-tests-batch-and-exit "${SELECTOR}")'
 
 %.elc: %.el
