@@ -207,6 +207,7 @@ as a property of the string."
 
 (defvar bdx--last-process nil)
 (defvar bdx--all-candidates nil)
+(defvar bdx--last-error nil)
 
 (defun bdx--ivy-collection-function (string &rest _args)
   "Collect candidates for query STRING.
@@ -214,6 +215,7 @@ This should be used as COLLECTION for `ivy-read'."
   (when (and bdx--last-process (process-live-p bdx--last-process))
     (delete-process bdx--last-process))
   (setq bdx--all-candidates nil)
+  (setq bdx--last-error nil)
   (or (ivy-more-chars)
       (prog1 '("" "working...")
         (setq
@@ -233,8 +235,7 @@ This should be used as COLLECTION for `ivy-read'."
           :done-callback
           (lambda () (ivy-update-candidates bdx--all-candidates))
           :error-callback
-          (lambda (err-string)
-            (message "%s" (propertize err-string 'face 'error))))))))
+          (lambda (err-string) (setq bdx--last-error err-string)))))))
 
 (defvar bdx-search-keymap
   (let ((map (make-sparse-keymap)))
@@ -255,6 +256,7 @@ REQUIRE-MATCH if non-nil will disallow exiting without selecting
 a symbol."
   (setq bdx--demangle-names nil)
   (setq bdx--query-buffer (current-buffer))
+  (setq bdx--last-error nil)
   (bdx-data
    (ivy-read prompt #'bdx--ivy-collection-function
              :require-match require-match
@@ -309,10 +311,14 @@ This will error if `bdx-demangle-names' is nil."
 
 (defun bdx--ivy-prompt ()
   "Return a prompt for `bdx-query' search."
+  (when bdx--last-error
+    (message "%s" (propertize bdx--last-error 'face 'error)))
   (format "%-8s %s"
-          (format "%d%s"
-                  (length bdx--all-candidates)
-                  (if (process-live-p bdx--last-process) "++" ""))
+          (if bdx--last-error
+              "ERR"
+            (format "%d%s"
+                    (length bdx--all-candidates)
+                    (if (process-live-p bdx--last-process) "++" "")))
           (ivy-state-prompt ivy-last)))
 
 (ivy-set-prompt 'bdx #'bdx--ivy-prompt)
