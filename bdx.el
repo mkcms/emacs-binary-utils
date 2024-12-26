@@ -345,6 +345,66 @@ This will error if `bdx-demangle-names' is nil."
 (ivy-set-prompt 'bdx #'bdx--ivy-prompt)
 
 
+;; Occur
+
+(defun bdx--occur (cands)
+  "Create ivy occur buffer with CANDS."
+
+  ;; TODO: Figure out why we can't use just CANDS and have to do this.
+  (setq cands ivy--all-candidates)
+
+  (let ((inhibit-read-only t)
+        (total-found
+         (or (and cands (plist-get (bdx-data (car cands)) :total)) 0)))
+    (erase-buffer)
+    (setq buffer-read-only t)
+
+    (insert "Search query: " (propertize (format "%S" ivy-text)
+                                         'face 'font-lock-string-face)
+            "\n")
+    (insert "Command: "
+            (with-current-buffer bdx-stderr-buffer
+              (if (string-match "Command: \\(.*\\)" (buffer-string))
+                  (match-string 1 (buffer-string))
+                "n/a"))
+            "\n")
+    (insert "\n")
+
+    (insert (format "Found %s candidates in total, retrieved %s:\n\n"
+                    total-found (length cands)))
+
+    (cl-flet ((insert-row
+                (name string &optional face)
+                (insert "    "
+                        (propertize name 'face 'font-lock-keyword-face)
+                        ": "
+                        (propertize string 'face face)
+                        "\n")))
+      (dolist (cand cands)
+        (pcase-let (((map :outdated :demangled :name :path
+                          :size :section :address :type
+                          )
+                     (bdx-data cand)))
+          (insert (propertize (or demangled name)
+                              'face 'font-lock-constant-face)
+                  ":\n")
+          (when outdated
+            (insert "    " (propertize "Warning:" 'face 'warning)
+                    " provided data is outdated, re-index needed\n"))
+          (insert-row "name" name 'font-lock-constant-face)
+          (insert-row "path" path 'font-lock-comment-face)
+          (insert-row "section" section 'font-lock-constant-face)
+          (insert-row "address" (format "0x%x" address)
+                      'font-lock-number-face)
+          (insert-row "size" (format "0x%x (%s)" size size)
+                      'font-lock-number-face)
+          (insert-row "type" type 'font-lock-type-face)
+          (insert "\n")))))
+  (goto-char (point-min)))
+
+(ivy-configure 'bdx :occur #'bdx--occur)
+
+
 ;; Disassembly
 
 (defun bdx-disassemble-binfile (symbol-plist)

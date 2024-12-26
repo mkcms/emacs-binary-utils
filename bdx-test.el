@@ -279,6 +279,55 @@ int bar() { return 0; }
 
       (should (equal 2 (length results))))))
 
+(ert-deftest bdx-search-occur ()
+  (bdx-test--with-files
+      `(("foo.c" "
+int foo() { return 0; }
+const char bar[10];
+" :args ("-c")))
+    (bdx-test--index)
+
+    (with-temp-buffer
+      (let (all-cands proc ivy--all-candidates)
+        (setq proc
+              (bdx--search-async "*:*" :callback
+                                 (lambda (cands)
+                                   (setq all-cands
+                                         (append all-cands cands)))))
+        (while (process-live-p proc)
+          (accept-process-output nil 0.1))
+
+        (setq ivy--all-candidates
+              (mapcar (lambda (data)
+                        (propertize (plist-get data :name) 'bdx-data data))
+                      all-cands))
+
+        (bdx--occur nil)
+
+        (should (search-forward "Found 2 candidates in total"))
+
+        (should (re-search-forward "^foo:$" nil t))
+        (forward-line 1)
+        (goto-char (line-beginning-position))
+        (should (looking-at-p ".*name: foo"))
+        (forward-line 1)
+        (should (looking-at-p ".*path:.*foo.c.o"))
+
+        (should (re-search-forward "^bar:$" nil t))
+        (forward-line 1)
+        (goto-char (line-beginning-position))
+        (should (looking-at-p ".*name: bar"))
+        (forward-line 1)
+        (should (looking-at-p ".*path:.*foo.c.o"))
+        (forward-line 1)
+        (should (looking-at-p ".*section: .rodata"))
+        (forward-line 1)
+        (should (looking-at-p ".*address:"))
+        (forward-line 1)
+        (should (looking-at-p ".*size: 0xa (10)"))
+        (forward-line 1)
+        (should (looking-at-p ".*type: OBJECT"))))))
+
 (ert-deftest bdx-generate-graph ()
   (bdx-test--with-files
       '(("foo.c" "
