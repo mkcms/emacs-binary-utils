@@ -313,13 +313,17 @@ This will error if `bdx-demangle-names' is nil."
   "Return a prompt for `bdx-query' search."
   (when bdx--last-error
     (message "%s" (propertize bdx--last-error 'face 'error)))
-  (format "%-8s %s"
-          (if bdx--last-error
-              "ERR"
-            (format "%d%s"
-                    (length bdx--all-candidates)
-                    (if (process-live-p bdx--last-process) "++" "")))
-          (ivy-state-prompt ivy-last)))
+  (let* ((cur (ivy-state-current ivy-last))
+         (data (and cur (bdx-data cur)))
+         (index (1+ (or (and data (plist-get data :index)) 0)))
+         (total (or (and data (plist-get data :total)) 0)))
+    (format "%-12s %s"
+            (if bdx--last-error "ERR"
+              (format "%s%s/%s"
+                      index
+                      (if (process-live-p bdx--last-process) "++" "")
+                      total))
+            (ivy-state-prompt ivy-last))))
 
 (ivy-set-prompt 'bdx #'bdx--ivy-prompt)
 

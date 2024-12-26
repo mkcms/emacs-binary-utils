@@ -94,6 +94,8 @@ int subdir_file() { return 0; }
 
       (should (equal (expand-file-name "foo.c.o")
                      (plist-get (nth 0 results) :path)))
+      (should (integerp (plist-get (nth 0 results) :index)))
+      (should (integerp (plist-get (nth 0 results) :total)))
       (should (equal "bar" (plist-get (nth 0 results) :name)))
 
       (should (equal (expand-file-name "foo.c.o")
