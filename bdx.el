@@ -207,7 +207,10 @@ as a property of the string."
 
 (defvar bdx--last-process nil)
 (defvar bdx--all-candidates nil)
+(defvar bdx--outdated-files nil)
+
 (defvar bdx--last-error nil)
+(defvar bdx--last-warning nil)
 
 (defun bdx--ivy-collection-function (string &rest _args)
   "Collect candidates for query STRING.
@@ -215,7 +218,9 @@ This should be used as COLLECTION for `ivy-read'."
   (when (and bdx--last-process (process-live-p bdx--last-process))
     (delete-process bdx--last-process))
   (setq bdx--all-candidates nil)
+  (setq bdx--outdated-files nil)
   (setq bdx--last-error nil)
+  (setq bdx--last-warning nil)
   (or (ivy-more-chars)
       (prog1 '("" "working...")
         (setq
@@ -231,6 +236,14 @@ This should be used as COLLECTION for `ivy-read'."
                              (propertize (plist-get result :name)
                                          'bdx-data result))
                            results)))
+            (dolist (res results)
+              (when (plist-get res :outdated)
+                (add-to-list 'bdx--outdated-files (plist-get res :path))))
+            (when bdx--outdated-files
+              (setq bdx--last-warning
+                    (format "Warning: %s file %s outdated, re-index needed"
+                            (length bdx--outdated-files)
+                            (if (cdr bdx--outdated-files) "are" "is"))))
             (ivy-update-candidates bdx--all-candidates))
           :done-callback
           (lambda () (ivy-update-candidates bdx--all-candidates))
@@ -311,8 +324,11 @@ This will error if `bdx-demangle-names' is nil."
 
 (defun bdx--ivy-prompt ()
   "Return a prompt for `bdx-query' search."
-  (when bdx--last-error
+  (cond
+   (bdx--last-error
     (message "%s" (propertize bdx--last-error 'face 'error)))
+   (bdx--last-warning
+    (message "%s" (propertize bdx--last-warning 'face 'warning))))
   (let* ((cur (ivy-state-current ivy-last))
          (data (and cur (bdx-data cur)))
          (index (1+ (or (and data (plist-get data :index)) 0)))
