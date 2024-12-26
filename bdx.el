@@ -65,6 +65,15 @@
 (require 'ivy)
 (require 'json)
 
+;; `require'-ing `map' does not guarantee it loaded as it is preloaded in
+;; Emacs.
+;;
+;; This hack was stolen from the built-in eglot.el.
+(eval-and-compile
+  (if (< emacs-major-version 28)
+      (load "map" nil 'nomessage)
+    (require 'map)))
+
 (defgroup bdx nil "Frontend for bdx tool."
   :group 'tools)
 

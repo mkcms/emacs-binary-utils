@@ -27,6 +27,7 @@ INSTALL_DEPENDENCIES := ${PACKAGE_INIT} --eval '(progn                        \
 	(unless (and (fboundp `seq-contains-p) (fboundp `project-root))       \
 	  (package-refresh-contents)                                          \
 	  (package-install (cadr (assoc `project package-archive-contents)))  \
+	  (package-install (cadr (assoc `map package-archive-contents)))      \
 	  (package-install (cadr (assoc `seq package-archive-contents))))     \
 	(unless (package-installed-p `ivy)                                    \
 	  (package-refresh-contents)                                          \
