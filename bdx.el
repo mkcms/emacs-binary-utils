@@ -387,14 +387,16 @@ This will error if `bdx-demangle-names' is nil."
                 (insert "    "
                         (propertize name 'face 'font-lock-keyword-face)
                         ": "
-                        (propertize string 'face face)
+                        (if (stringp string)
+                            (propertize string 'face face)
+                          (format "(ERROR: Invalid value: nil)" 'face 'error))
                         "\n")))
       (dolist (cand cands)
         (pcase-let (((map :outdated :demangled :name :path
                           :size :section :address :type
                           )
                      (bdx-data cand)))
-          (insert (propertize (or demangled name)
+          (insert (propertize (or demangled name "(ERROR: No name)")
                               'face 'font-lock-constant-face)
                   ":\n")
           (when outdated
@@ -403,9 +405,9 @@ This will error if `bdx-demangle-names' is nil."
           (insert-row "name" name 'font-lock-constant-face)
           (insert-row "path" path 'font-lock-comment-face)
           (insert-row "section" section 'font-lock-constant-face)
-          (insert-row "address" (format "0x%x" address)
+          (insert-row "address" (and address (format "0x%x" address))
                       'font-lock-number-face)
-          (insert-row "size" (format "0x%x (%s)" size size)
+          (insert-row "size" (and size (format "0x%x (%s)" size size))
                       'font-lock-number-face)
           (insert-row "type" type 'font-lock-type-face)
           (insert "\n")))))
