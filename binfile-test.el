@@ -283,9 +283,9 @@ int main() { return foo(1); }
 0000000000000000 <func>:
    0:	endbr64
    4:	test   edi,edi
-   6:	jle   .L1
+   6:	jle    .L1
    8:	test   esi,esi
-   a:	jns   .L2
+   a:	jns    .L2
    c:	mov    eax,0x1
   11:	ret
   12:	nop    WORD PTR [rax+rax*1+0x0]
@@ -295,7 +295,7 @@ int main() { return foo(1); }
   1e:	xchg   ax,ax
 .L1:
   20:	test   esi,esi
-  22:	js    .L3
+  22:	js     .L3
   24:	mov    eax,0x4
   29:	ret
   2a:	nop    WORD PTR [rax+rax*1+0x0]
@@ -352,6 +352,29 @@ int main() { return foo(1); }
 	nop    WORD PTR [rax+rax*1+0x0]
 	mov    eax,0x3
 	ret
+"))))
+
+(ert-deftest binfile-postprocess-numeric-to-symbolic-references ()
+  (with-temp-buffer
+    (insert "
+0000000000000000 <func>:
+    2550:	cmp    BYTE PTR [rcx+0x2],0x0
+    2554:	jns    2560 <func+0x10>
+    2556:	ret
+    2557:	nop    WORD PTR [rax+rax*1+0x0]
+    2560:	jmp    19a0 <func.part.0>
+")
+    (goto-char (point-min))
+    (binfile-postprocess-numeric-to-symbolic-references (point-min) (point-max) "func")
+
+    (should (string= (buffer-string)
+                     "
+0000000000000000 <func>:
+    2550:	cmp    BYTE PTR [rcx+0x2],0x0
+    2554:	jns    func+0x10
+    2556:	ret
+    2557:	nop    WORD PTR [rax+rax*1+0x0]
+    2560:	jmp    func.part.0
 "))))
 
 (ert-deftest binfile-postprocess-unused-symbolic-local-references ()

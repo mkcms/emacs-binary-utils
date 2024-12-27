@@ -439,7 +439,7 @@ The groups are:
                                  (format "^ +0*%s+:" target-addr) nil t)))))
           (setq target (move-marker (make-marker) target))
           (let ((label (format ".L%d" (cl-incf label-count))))
-            (replace-match label nil t)
+            (replace-match (concat " " label) nil t)
             (save-excursion
               (goto-char target)
               (goto-char (line-beginning-position))
@@ -477,7 +477,7 @@ Group 1 is the symbol.")
 (defun binfile-postprocess-numeric-to-symbolic-references (_beg _end _name)
   "Convert references with address and symbol to just symbol."
   (while (re-search-forward binfile--symbolic-reference-regexp nil t)
-    (replace-match "\\1")))
+    (replace-match " \\1")))
 
 (defvar binfile-file-format)
 
