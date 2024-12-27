@@ -389,7 +389,8 @@ This will error if `bdx-demangle-names' is nil."
                         ": "
                         (if (stringp string)
                             (propertize string 'face face)
-                          (format "(ERROR: Invalid value: nil)" 'face 'error))
+                          (propertize
+                           "(ERROR: Invalid value: nil)" 'face 'error))
                         "\n")))
       (dolist (cand cands)
         (pcase-let (((map :outdated :demangled :name :path
