@@ -250,9 +250,9 @@ This should be used as COLLECTION for `ivy-read'."
                 (add-to-list 'bdx--outdated-files (plist-get res :path))))
             (when bdx--outdated-files
               (setq bdx--last-warning
-                    (format "Warning: %s file %s outdated, re-index needed"
+                    (format "Warning: %s file%s outdated, re-index needed"
                             (length bdx--outdated-files)
-                            (if (cdr bdx--outdated-files) "are" "is"))))
+                            (if (cdr bdx--outdated-files) "s are" " is"))))
             (ivy-update-candidates bdx--all-candidates))
           :done-callback
           (lambda () (ivy-update-candidates bdx--all-candidates))
