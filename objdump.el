@@ -59,9 +59,8 @@
   "Objdump executable.
 This can either be a file path to the objdump executable, or an
 alist of (TESTER . PATH) entries, where TESTER is either a regexp
-for file format or a function accepting a filename, and PATH is a
-path to objdump executable.  The output is checked against parsed
-output of running \\='PATH -f\\=' on a binary file."
+matching the binary filename or a function accepting the binary
+filename, and PATH is a path to objdump executable."
   :type '(choice file
                  (alist :key-type (choice string function) :value-type file)))
 
@@ -83,14 +82,7 @@ objdump on every run.")
              if (and (functionp tester) (funcall tester binary))
              return program
 
-             else if (when-let* ((output
-                                  (and (stringp tester)
-                                       (shell-command-to-string
-                                        (format "%s -f %s" program binary)))))
-                       (and (string-match
-                             ".*[^:\n]+:[[:space:]]+file format \\([^\n]*\\).*"
-                             output)
-                            (string-match-p tester (match-string 1 output))))
+             else if (and (stringp tester) (string-match-p tester binary))
              return program)))
      (t (error "`objdump-program' has unrecognized value")))
     (unless objdump

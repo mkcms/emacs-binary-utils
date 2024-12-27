@@ -280,26 +280,27 @@ int foo(int x) { return external_func(x) - 128; }
 
 (ert-deftest objdump-choose-executable ()
   (objdump-test
-   "
+      "
 int foo() { return 0; }
 "
-   "libfoo.so" "gcc" '("-m32" "-shared")
+      "libfoo.so" "gcc" '("-m32" "-shared")
 
-   (make-symbolic-link (executable-find "objdump") "objdump-for-elf32")
-   (make-symbolic-link (executable-find "objdump") "objdump-for-elf64")
+    (make-symbolic-link "libfoo.so" "libfoo.so.different")
+    (make-symbolic-link "libfoo.so" "libfoo.so.64")
 
-   (let ((objdump-program
-          `(("elf32.*" . ,(expand-file-name "objdump-for-elf32"))
-            ((lambda (filename) (string= filename "foo"))
-             . "objdump-for-foo")
-            (".*" . ,(expand-file-name "objdump-for-elf64")))))
-     (should (equal (objdump--choose-executable "libfoo.so")
-                    (expand-file-name "objdump-for-elf32")))
-     (should (equal (objdump--choose-executable (executable-find "emacs"))
-                    (expand-file-name "objdump-for-elf64")))
-     (should (equal (objdump--choose-executable "foo")
-                    "objdump-for-foo"))
-     (should-error (objdump--choose-executable "no-such-file")))))
+    (let ((objdump-program
+           `((".*different.*" . "different-objdump")
+             ((lambda (filename) (string-match-p ".*[.]64$" filename))
+              . "objdump-64")
+             (".*" . "generic-objdump"))))
+      (should (equal (objdump--choose-executable "libfoo.so")
+                     "generic-objdump"))
+      (should (equal (objdump--choose-executable "libfoo.so.different")
+                     "different-objdump"))
+      (should (equal (objdump--choose-executable "libfoo.so.64")
+                     "objdump-64"))
+      (should (equal (objdump--choose-executable "no-such-file")
+                     "generic-objdump")))))
 
 (provide 'objdump-test)
 ;;; objdump-test.el ends here
