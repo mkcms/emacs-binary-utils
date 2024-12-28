@@ -224,12 +224,17 @@ as a property of the string."
 (defun bdx--ivy-collection-function (string &rest _args)
   "Collect candidates for query STRING.
 This should be used as COLLECTION for `ivy-read'."
-  (when (and bdx--last-process (process-live-p bdx--last-process))
-    (delete-process bdx--last-process))
   (setq bdx--all-candidates nil)
   (setq bdx--outdated-files nil)
   (setq bdx--last-error nil)
   (setq bdx--last-warning nil)
+  (setq bdx--callback #'ignore)
+  (setq bdx--done-callback #'ignore)
+  (setq bdx--error-callback #'ignore)
+  (when (processp bdx--last-process)
+    (delete-process bdx--last-process)
+    (accept-process-output bdx--last-process 0.1))
+
   (let ((depth (minibuffer-depth)))
     (or (ivy-more-chars)
         (prog1 '("" "working...")
@@ -263,9 +268,65 @@ This should be used as COLLECTION for `ivy-read'."
             :error-callback
             (lambda (err-string) (setq bdx--last-error err-string))))))))
 
+(defun bdx-complete ()
+  "Complete the string before point using bdx complete-prefix command.
+E.g. when the string before point is \"section:.b\" it will allow
+selecting all possible completions for section that start with
+\".b\"."
+  (interactive)
+  (let (field prefix command completion
+              (known-fields
+               '("path" "source" "name" "fullname"
+                 "section" "address" "size"
+                 "type" "relocations" "mtime"))
+              candidates common-prefix)
+    (cond
+     ((looking-back "\\(\\b[a-z]+\\):\\([^ \n]*\\)")
+      (setq field (match-string-no-properties 1)
+            prefix (match-string-no-properties 2)))
+     ((looking-back "\\([^ \n]+\\)" (line-beginning-position) t)
+      (setq prefix (match-string-no-properties 1)))
+     (t (setq prefix "")))
+
+    (save-match-data
+      (setq command (bdx--command "complete-prefix" (or field "name") prefix))
+      (setq candidates
+            (with-temp-buffer
+              (apply #'call-process (car command) nil
+                     (list (current-buffer) nil) nil
+                     (cdr command))
+
+              ;; Also complete the field name, if it's not
+              ;; provided
+              (unless field
+                (dolist (known-field known-fields)
+                  (when (string-prefix-p prefix known-field)
+                    (insert known-field ":\n"))))
+
+              (split-string (buffer-string))))
+      (cond
+       ((null candidates) (error "No completions for %S" prefix))
+       ((null (cdr candidates)) (setq completion (car candidates)))
+       ((and (setq common-prefix (try-completion prefix candidates))
+             (not (string= common-prefix prefix)))
+        (setq completion common-prefix))
+       (t
+        (setq completion
+              (completing-read (format "Completion for \"%s\": "
+                                       (if field
+                                           (format "%s:%s" field prefix)
+                                         prefix))
+                               candidates nil nil prefix)))))
+    (let ((inhibit-read-only t))
+      (replace-match
+       (if field
+           (format "%s:%s" field completion)
+         completion)))))
+
 (defvar bdx-search-keymap
   (let ((map (make-sparse-keymap)))
     (define-key map (kbd "C-c C-d") #'bdx-toggle-name-demangling)
+    (define-key map (kbd "<tab>") #'bdx-complete)
     map)
   "Keymap used in minibuffer in `bdx-query'.")
 
@@ -297,7 +358,8 @@ a symbol."
                        (setq bdx--done-callback #'ignore)
                        (setq bdx--error-callback #'ignore)
                        (when (processp bdx--last-process)
-                         (delete-process bdx--last-process))))))
+                         (delete-process bdx--last-process)
+                         (accept-process-output bdx--last-process 0.1))))))
 
 (cl-defun bdx-get-query (prompt &key history)
   "Get a search query from the user, with results preview, using PROMPT.
