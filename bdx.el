@@ -230,34 +230,38 @@ This should be used as COLLECTION for `ivy-read'."
   (setq bdx--outdated-files nil)
   (setq bdx--last-error nil)
   (setq bdx--last-warning nil)
-  (or (ivy-more-chars)
-      (prog1 '("" "working...")
-        (setq
-         bdx--last-process
-         (bdx--search-async
-          string
-          :callback
-          (lambda (results)
-            (setq bdx--all-candidates
-                  (append bdx--all-candidates
-                          (mapcar
-                           (lambda (result)
-                             (propertize (plist-get result :name)
-                                         'bdx-data result))
-                           results)))
-            (dolist (res results)
-              (when (plist-get res :outdated)
-                (add-to-list 'bdx--outdated-files (plist-get res :path))))
-            (when bdx--outdated-files
-              (setq bdx--last-warning
-                    (format "Warning: %s file%s outdated, re-index needed"
-                            (length bdx--outdated-files)
-                            (if (cdr bdx--outdated-files) "s are" " is"))))
-            (ivy-update-candidates bdx--all-candidates))
-          :done-callback
-          (lambda () (ivy-update-candidates bdx--all-candidates))
-          :error-callback
-          (lambda (err-string) (setq bdx--last-error err-string)))))))
+  (let ((depth (minibuffer-depth)))
+    (or (ivy-more-chars)
+        (prog1 '("" "working...")
+          (setq
+           bdx--last-process
+           (bdx--search-async
+            string
+            :callback
+            (lambda (results)
+              (setq bdx--all-candidates
+                    (append bdx--all-candidates
+                            (mapcar
+                             (lambda (result)
+                               (propertize (plist-get result :name)
+                                           'bdx-data result))
+                             results)))
+              (dolist (res results)
+                (when (plist-get res :outdated)
+                  (add-to-list 'bdx--outdated-files (plist-get res :path))))
+              (when bdx--outdated-files
+                (setq bdx--last-warning
+                      (format "Warning: %s file%s outdated, re-index needed"
+                              (length bdx--outdated-files)
+                              (if (cdr bdx--outdated-files) "s are" " is"))))
+              (when (eq (minibuffer-depth) depth)
+                (ivy-update-candidates bdx--all-candidates)))
+            :done-callback
+            (lambda ()
+              (when (eq (minibuffer-depth) depth)
+                (ivy-update-candidates bdx--all-candidates)))
+            :error-callback
+            (lambda (err-string) (setq bdx--last-error err-string))))))))
 
 (defvar bdx-search-keymap
   (let ((map (make-sparse-keymap)))
