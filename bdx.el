@@ -281,7 +281,7 @@ selecting all possible completions for section that start with
                  "type" "relocations" "mtime"))
               candidates common-prefix)
     (cond
-     ((looking-back "\\(\\b[a-z]+\\):\\([^ \n]*\\)")
+     ((looking-back "\\(\\b[a-z]+\\):\\([^ \n]*\\)" nil)
       (setq field (match-string-no-properties 1)
             prefix (match-string-no-properties 2)))
      ((looking-back "\\([^ \n]+\\)" (line-beginning-position) t)
