@@ -192,7 +192,7 @@ int bar() { return 0; }
                   :error-callback (lambda (err) (setq error-str err))))
       (should-not error-str)
       (while (process-live-p proc) (accept-process-output proc 0.1))
-      (should (string-match-p "error.*Unknown field UNKNOWN_FIELD"
+      (should (string-match-p "error.*Unknown field \"UNKNOWN_FIELD\""
                               error-str)))))
 
 (ert-deftest bdx-search-async-query-string-contains-option ()
