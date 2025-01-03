@@ -84,10 +84,11 @@
 int foo(int x) { return x + 1; }
 "
       "file.o" "gcc" '("-c")
-    (binfile-disassemble "foo" "file.o")
+    (binfile-disassemble "foo" "file.o" nil (expand-file-name "file.c"))
     (with-current-buffer binfile-disassembly-buffer
       (goto-char (point-min))
       (should (search-forward (format "; file %S" (expand-file-name "file.o"))))
+      (should (search-forward (format ".file %S" (expand-file-name "file.c"))))
       (should (search-forward ".section .text"))
       (should (search-forward "foo:"))
       (should (search-forward "ret")))))

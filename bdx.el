@@ -489,7 +489,9 @@ This will error if `bdx-demangle-names' is nil."
   "Disassemble SYMBOL-PLIST with `binfile-disassemble'."
   (eval-and-compile (require 'binfile))
   (binfile-disassemble (plist-get symbol-plist :name)
-                       (plist-get symbol-plist :path)))
+                       (plist-get symbol-plist :path)
+                       nil
+                       (plist-get symbol-plist :source)))
 
 (defun bdx-disassemble-symbol-at-point-binfile ()
   "Try to get the symbol at point using `binfile' function."

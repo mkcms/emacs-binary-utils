@@ -547,17 +547,21 @@ Returns TARGET."
 ;; Disassembly
 
 (defvar binfile--file nil "Current object file.")
-
-(defvar binfile--symbol)
+(defvar binfile--source-file nil "Current source file.")
+(defvar binfile--symbol nil "Currently disassembled symbol.")
 
 (defvar binfile-file-format nil
   "Disassembled file format string, e.g. \"elf64-x86-64\".")
 
 (defun binfile--disassemble (symbol section filename start-address end-address
-                                    &optional demangle)
+                                    &optional demangle source-file)
   "Disassemble SYMBOL in SECTION of FILENAME between START-ADDRESS:END-ADDRESS.
-If DEMANGLE is non-nil, don't demangle symbols."
+If DEMANGLE is non-nil, don't demangle symbols.
+
+If SOURCE-FILE is provided, then insert that as \\='.file\\='
+directive."
   (setq binfile--file filename)
+  (setq binfile--source-file source-file)
   (setq binfile--symbol symbol)
   (if demangle
       (setq symbol (objdump-demangle symbol))
@@ -569,6 +573,8 @@ If DEMANGLE is non-nil, don't demangle symbols."
   (when binfile-disassembly-prologue
     (insert binfile-disassembly-prologue "\n"))
   (insert "; file \"" filename "\"\n")
+  (when source-file
+    (insert ".file \"" source-file "\"\n"))
   (setq binfile-file-format objdump-file-format)
 
   (save-excursion
@@ -617,8 +623,6 @@ If DEMANGLE is non-nil, don't demangle symbols."
 
 (defvar binfile-mode)
 
-(defvar binfile--symbol nil "Currently disassembled symbol.")
-
 (defun binfile--buffer-visible-p (buffer)
   "Check if any window is showing BUFFER."
   (cl-some (lambda (w) (eq (window-buffer w) buffer))
@@ -630,20 +634,26 @@ If DEMANGLE is non-nil, don't demangle symbols."
   (file-attribute-modification-time (file-attributes filename)))
 
 ;;;###autoload
-(defun binfile-disassemble (symbol filename &optional mangled)
+(defun binfile-disassemble (symbol filename &optional mangled source-file)
   "Disassemble SYMBOL in object FILENAME.
 Interactively, this selects the function at point and the proper
 object file.  If there are multiple candidates for disassembly,
 asks (with completion) to select the symbol to disassemble.
 
-If MANGLED is non-nil, don't demangle symbols."
-  (interactive (binfile--get-symbol-and-filename
-                "Disassemble symbol: " current-prefix-arg
-                nil
-                (and (not binfile-mode) (or (which-function)
-                                            (thing-at-point 'symbol t)))
-                nil
-                #'binfile-disassemble))
+If MANGLED is non-nil, don't demangle symbols.
+
+If SOURCE-FILE is non-nil, then it is inserted as \\='.file\\='
+directive near the beginning of the buffer."
+  (interactive
+   (append
+    (binfile--get-symbol-and-filename
+     "Disassemble symbol: " current-prefix-arg
+     nil
+     (and (not binfile-mode) (or (which-function)
+                                 (thing-at-point 'symbol t)))
+     nil
+     #'binfile-disassemble)
+    (list nil (buffer-file-name))))
   (setq filename (expand-file-name filename))
   (pcase-let* ((`(,address ,size ,section)
                 (if-let* ((mangled-name (objdump-mangle symbol))
@@ -658,8 +668,7 @@ If MANGLED is non-nil, don't demangle symbols."
                           (plist-get entry :size)
                           (plist-get entry :section))
                   (error "Symbol %S not found in %S" symbol filename)))
-               (end-address (+ address size))
-               (source-file (buffer-file-name)))
+               (end-address (+ address size)))
     (setq symbol (if mangled (objdump-mangle symbol)
                    (objdump-demangle symbol)))
     (when (<= end-address address)
@@ -671,7 +680,7 @@ If MANGLED is non-nil, don't demangle symbols."
         (with-temp-buffer
           (let ((source (current-buffer)))
             (binfile--disassemble symbol section filename address end-address
-                                  (not mangled))
+                                  (not mangled) source-file)
             (with-current-buffer target
               (set-text-properties (point-min) (point-max) nil)
               (delete-all-overlays)
@@ -697,7 +706,8 @@ If MANGLED is non-nil, don't demangle symbols."
   "Disassemble the current buffer again, toggling mangling of symbol names."
   (interactive)
   (binfile-disassemble binfile--symbol binfile--file
-                       (not (objdump-symbol-mangled-p binfile--symbol))))
+                       (not (objdump-symbol-mangled-p binfile--symbol))
+                       binfile--source-file))
 
 
 ;; Raw data inspection
