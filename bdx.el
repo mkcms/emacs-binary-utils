@@ -217,6 +217,8 @@ as a property of the string."
 (defvar bdx--last-process nil)
 (defvar bdx--all-candidates nil)
 (defvar bdx--outdated-files nil)
+(defvar bdx--sources-needing-recompilation nil
+  "List of source files that are newer than their compiled counterparts.")
 
 (defvar bdx--last-error nil)
 (defvar bdx--last-warning nil)
@@ -226,6 +228,7 @@ as a property of the string."
 This should be used as COLLECTION for `ivy-read'."
   (setq bdx--all-candidates nil)
   (setq bdx--outdated-files nil)
+  (setq bdx--sources-needing-recompilation nil)
   (setq bdx--last-error nil)
   (setq bdx--last-warning nil)
   (setq bdx--callback #'ignore)
@@ -251,14 +254,26 @@ This should be used as COLLECTION for `ivy-read'."
                                (propertize (plist-get result :name)
                                            'bdx-data result))
                              results)))
-              (dolist (res results)
-                (when (plist-get res :outdated)
-                  (add-to-list 'bdx--outdated-files (plist-get res :path))))
-              (when bdx--outdated-files
+              (pcase-dolist ((map :outdated :path :source) results)
+                (when outdated
+                  (add-to-list 'bdx--outdated-files path))
+                (when (and source (file-newer-than-file-p source path))
+                  (add-to-list 'bdx--sources-needing-recompilation source)))
+              (cond
+               (bdx--outdated-files
                 (setq bdx--last-warning
                       (format "Warning: %s file%s outdated, re-index needed"
                               (length bdx--outdated-files)
                               (if (cdr bdx--outdated-files) "s are" " is"))))
+               (bdx--sources-needing-recompilation
+                (setq bdx--last-warning
+                      (format
+                       "Warning: %s, re-compilation and re-index needed"
+                       (if (cdr bdx--sources-needing-recompilation)
+                           (format
+                            "%s binary files are older than their source files"
+                            (length bdx--sources-needing-recompilation))
+                         "1 binary file is older than it's source file")))))
               (when (eq (minibuffer-depth) depth)
                 (ivy-update-candidates bdx--all-candidates)))
             :done-callback
