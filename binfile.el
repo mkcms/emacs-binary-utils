@@ -205,6 +205,7 @@ The return value is either nil or a cons (SYMBOL . OFFSET).
 OFFSET is always an integer.  SYMBOL is always demangled."
   (let ((pt (point)) found bounds)
     (when-let* ((symtab (and binfile--file
+                             (file-readable-p binfile--file)
                              (objdump-read-symtab binfile--file))))
       (when (< (hash-table-count symtab)
                binfile-scan-for-symbol-at-point-limit)
