@@ -247,26 +247,27 @@ This should be used as COLLECTION for `ivy-read'."
                                (propertize (plist-get result :name)
                                            'bdx-data result))
                              results)))
-              (pcase-dolist ((map :outdated :path :source) results)
-                (when outdated
+              (pcase-dolist ((map (:outdated
+                                   (map (:binary binary-outdated)
+                                        (:symbol symbol-outdated)))
+                                  :path :source)
+                             results)
+                (when symbol-outdated
                   (add-to-list 'bdx--outdated-files path))
-                (when (and source (file-newer-than-file-p source path))
+                (when binary-outdated
                   (add-to-list 'bdx--sources-needing-recompilation source)))
               (cond
                (bdx--outdated-files
                 (setq bdx--last-warning
-                      (format "Warning: %s file%s outdated, re-index needed"
-                              (length bdx--outdated-files)
-                              (if (cdr bdx--outdated-files) "s are" " is"))))
+                      (format "Warning: %s file(s) outdated, re-index needed"
+                              (length bdx--outdated-files))))
                (bdx--sources-needing-recompilation
                 (setq bdx--last-warning
                       (format
-                       "Warning: %s, re-compilation and re-index needed"
-                       (if (cdr bdx--sources-needing-recompilation)
-                           (format
-                            "%s binary files are older than their source files"
-                            (length bdx--sources-needing-recompilation))
-                         "1 binary file is older than it's source file")))))
+                       (concat
+                        "Warning: %s binary file(s) are older than their"
+                        " source files, re-compilation and re-index needed")
+                       (length bdx--sources-needing-recompilation)))))
               (when (eq (minibuffer-depth) depth)
                 (ivy-update-candidates bdx--all-candidates)))
             :done-callback
@@ -465,16 +466,22 @@ This will error if `bdx-demangle-names' is nil."
                            "(ERROR: Invalid value: nil)" 'face 'error))
                         "\n")))
       (dolist (cand cands)
-        (pcase-let (((map :outdated :demangled :name :path
+        (pcase-let (((map (:outdated (map (:binary binary-outdated)
+                                          (:symbol symbol-outdated)))
+                          :demangled :name :path
                           :size :section :address :type
                           )
                      (bdx-data cand)))
           (insert (propertize (or demangled name "(ERROR: No name)")
                               'face 'font-lock-constant-face)
                   ":\n")
-          (when outdated
+          (cond
+           (binary-outdated
             (insert "    " (propertize "Warning:" 'face 'warning)
-                    " provided data is outdated, re-index needed\n"))
+                    " binary is outdated, need to re-compile\n"))
+           (symbol-outdated
+            (insert "    " (propertize "Warning:" 'face 'warning)
+                    " provided data is outdated, re-index needed\n")))
           (insert-row "name" name 'font-lock-constant-face)
           (insert-row "path" path 'font-lock-comment-face)
           (insert-row "section" section 'font-lock-constant-face)
