@@ -174,10 +174,6 @@ The ARGS list is filtered out to keep only non-nil values."
               string))))))
     (funcall bdx--done-callback)))
 
-(defcustom bdx-demangle-names t
-  "If non-nil, request to demangle C++ names."
-  :type 'boolean)
-
 (cl-defun bdx--search-async (query &key
                                    (callback #'ignore)
                                    (done-callback #'ignore)
@@ -201,10 +197,7 @@ The return value is a process object for the search."
    :name "bdx-search"
    :buffer (generate-new-buffer "bdx-search")
    :stderr bdx-stderr-buffer
-   :command (bdx--command
-             "search" "-f" "sexp"
-             (and bdx-demangle-names "--demangle-names")
-             "--" query)
+   :command (bdx--command "search" "-f" "sexp" "--" query)
    :filter #'bdx--process-filter
    :sentinel #'bdx--process-sentinel))
 
@@ -389,8 +382,6 @@ HISTORY can be a history variable."
   "Toggle name demangling in current search session.
 This will error if `bdx-demangle-names' is nil."
   (interactive)
-  (unless bdx-demangle-names
-    (error "Demangling is disabled by user"))
   (setq bdx--demangle-names (not bdx--demangle-names)))
 
 (defun bdx--ivy-display-transformer (string)
