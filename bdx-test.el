@@ -62,7 +62,8 @@
 (defun bdx-test--index (&optional dir)
   (with-temp-buffer
     (let* ((bdx-binary-directory (or dir default-directory))
-           (cmd (combine-and-quote-strings (bdx--command "index")))
+           (cmd (combine-and-quote-strings
+                 (bdx--command "index" "--opt" "index_relocations=True")))
            (rv (call-process-shell-command cmd nil (current-buffer))))
       (unless (zerop rv)
         (error "'%s' failed for %s: %s"
