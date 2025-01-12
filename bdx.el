@@ -285,7 +285,7 @@ selecting all possible completions for section that start with
   (interactive)
   (let (field prefix command completion
               (known-fields
-               '("path" "source" "name" "fullname"
+               '("path" "source" "name" "demangled" "fullname"
                  "section" "address" "size"
                  "type" "relocations" "mtime"))
               candidates common-prefix)
@@ -305,6 +305,15 @@ selecting all possible completions for section that start with
                      (list (current-buffer) nil) nil
                      (cdr command))
 
+              ;; If we don't have a field name, then also collect candidates
+              ;; for "demangled"
+              (unless field
+                (setq command
+                      (bdx--command "complete-prefix" "demangled" prefix))
+                (apply #'call-process (car command) nil
+                       (list (current-buffer) nil) nil
+                       (cdr command)))
+
               ;; Also complete the field name, if it's not
               ;; provided
               (unless field
@@ -312,7 +321,7 @@ selecting all possible completions for section that start with
                   (when (string-prefix-p prefix known-field)
                     (insert known-field ":\n"))))
 
-              (split-string (buffer-string))))
+              (split-string (buffer-string) "[\n\r]")))
       (cond
        ((null candidates) (error "No completions for %S" prefix))
        ((null (cdr candidates)) (setq completion (car candidates)))
@@ -326,6 +335,11 @@ selecting all possible completions for section that start with
                                            (format "%s:%s" field prefix)
                                          prefix))
                                candidates nil nil prefix)))))
+
+    (when (seq-contains-p completion ?\ )
+      ;; Add string quotes if the completion contains spaces
+      (setq completion (format "%S" completion)))
+
     (let ((inhibit-read-only t))
       (replace-match
        (if field
