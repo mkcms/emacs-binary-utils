@@ -33,8 +33,8 @@
 ;;
 ;; - `bdx-disassemble'
 ;;
-;;   Read a bdx query from the user with `ivy', and use `binfile-disassemble'
-;;   (or a custom function) to disassemble the selected symbol.
+;;   Read a bdx query from the user with `ivy', and disassemble the selected
+;;   symbol.
 ;;
 ;; - `bdx-show-graph-xdg-open'
 ;;
@@ -512,46 +512,48 @@ This will error if `bdx-demangle-names' is nil."
 
 ;; Disassembly
 
-(defun bdx-disassemble-binfile (symbol-plist)
-  "Disassemble SYMBOL-PLIST with `binfile-disassemble'."
-  (eval-and-compile (require 'binfile))
-  (binfile-disassemble (plist-get symbol-plist :name)
-                       (plist-get symbol-plist :path)
-                       nil
-                       (plist-get symbol-plist :source)))
+(defconst bdx-disassembly-buffer "*bdx disassembly*")
 
-(defun bdx-disassemble-symbol-at-point-binfile ()
-  "Try to get the symbol at point using `binfile' function."
-  (eval-and-compile (require 'binfile))
-  (eval-and-compile (require 'objdump))
-  (when-let* ((symbol (car-safe (binfile--symbol-and-offset-at-point))))
-    (setq symbol (objdump-mangle symbol))
-    (if (string-match ".hidden \\(.*\\)" symbol)
-        (match-string 1 symbol)
-      symbol)))
+(defvar bdx-disassembler nil
+  "Command to use as -D option to \\='bdx disass\\='.")
 
-(defvar bdx-disassemble-function #'bdx-disassemble-binfile
-  "Function to disasssemble selected symbols.
-It must accept a single argument, the symbol plist.")
+(defvar bdx-disassembler-options "--reloc"
+  "Additional options to append to the disassembler.
+If `bdx-disassembler' is nil, then these options are appended to
+the default objdump invocation.")
 
-(defvar bdx-disassemble-symbol-at-point-function
-  #'bdx-disassemble-symbol-at-point-binfile
-  "Function to get a symbol at point.
-It must be callable with zero arguments and return a string or nil.")
+(defvar bdx-disassembly-hook nil
+  "Hook called at the end of `bdx-disassemble'.")
 
 (defun bdx-disassemble (symbol-plist)
   "Disassemble the symbol encoded in SYMBOL-PLIST.
 Interactively, prompts for a query and allows selecting a single
-symbol.
+symbol."
+  (interactive (list (bdx-query "Disassemble symbol: "
+                                :require-match t)))
+  (with-current-buffer (get-buffer-create bdx-disassembly-buffer)
+    (pcase-let (((map :name :path :section) symbol-plist))
+      (let ((command
+             (apply #'bdx--command "disass"
+                    (append (and bdx-disassembler (list "-D" bdx-disassembler))
+                            (and bdx-disassembler-options
+                                 (list "-M" bdx-disassembler-options))
+                            (list
+                             (format "name:\"%s\"" name)
+                             (format "path:\"%s\"" path)
+                             (format "section:\"%s\"" section)))))
+            (inhibit-read-only t))
+        (erase-buffer)
 
-The function used for disassembly is set in
-`bdx-disassemble-function'."
-  (interactive
-   (list (bdx-query "Disassemble symbol: "
-                     :require-match t
-                     :initial-input
-                     (funcall bdx-disassemble-symbol-at-point-function))))
-  (funcall bdx-disassemble-function symbol-plist))
+        (pop-to-buffer (current-buffer))
+        (apply #'call-process (car command)
+               nil (current-buffer) t (cdr command))
+
+        (asm-mode)
+        (run-hooks 'bdx-disassembly-hook)
+
+        (setq buffer-read-only t)
+        (setq buffer-undo-list t)))))
 
 
 ;; Graphs
