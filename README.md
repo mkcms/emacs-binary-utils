@@ -26,13 +26,6 @@ The binary file is by default provided by `compiled-file.el` library.
 Using `compdb-output-filename` as `compiled-file-function` allows automatically
 finding binary (.o) files for current buffer from `compile_commands.json` file.
 
-The other commands are:
-
-- `binfile-diff`
-
-  Display a diff buffer for examining a difference between two disassembled
-  binary files.
-
 
 ## `bdx.el` - Frontend for bdx ##
 

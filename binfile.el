@@ -20,7 +20,7 @@
 ;; along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 ;;; Commentary:
-;; 
+;;
 ;; An extendable package for examining binary files.  It can disassemble many
 ;; types of ELF files and postprocess the results to be more easily readable
 ;; (e.g. it can parse relocations reported by objdump and output them
@@ -33,13 +33,6 @@
 ;; Using `compdb-output-filename' as `compiled-file-function' allows
 ;; automatically finding binary (.o) files for current buffer from
 ;; "compile_commands.json" file.
-;;
-;; The other commands are:
-;;
-;; - `binfile-diff'
-;;
-;;   Display a diff buffer for examining a difference between two disassembled
-;;   binary files.
 
 ;;; Code:
 
@@ -136,12 +129,6 @@ completion providers.")
 
 (defconst binfile-disassembly-buffer "*disassembly*"
   "Buffer with disassembled code.")
-
-(defconst binfile-disassembly-diff-buffer-a "*disassembly A*"
-  "Name of the first buffer for diffing disassemblies.")
-
-(defconst binfile-disassembly-diff-buffer-b "*disassembly B*"
-  "Name of the second buffer for diffing disassemblies.")
 
 (defvar binfile-symbol-history nil
   "History variable for `binfile-disassemble'.")
@@ -676,66 +663,6 @@ directive near the beginning of the buffer."
   (binfile-disassemble binfile--symbol binfile--file
                        (not (objdump-symbol-mangled-p binfile--symbol))
                        binfile--source-file))
-
-
-;; Diffing
-
-(defvar-local binfile--diff-filename nil "Filename for this diff buffer.")
-
-;;;###autoload
-(defun binfile-diff (symbol filename-a filename-b)
-  "Compare SYMBOL between FILENAME-A and FILENAME-B."
-  (interactive
-   (let* ((filename-a
-           (read-file-name "Binary file A to compare: "
-                           nil nil nil
-                           (or (ignore-errors
-                                 (with-current-buffer
-                                     binfile-disassembly-diff-buffer-a
-                                   binfile--diff-filename))
-                               binfile--file)))
-          (filename-b
-           (read-file-name "Binary file B to compare: "
-                           (file-name-directory filename-a) nil nil
-                           (ignore-errors
-                             (with-current-buffer
-                                 binfile-disassembly-diff-buffer-b
-                               binfile--diff-filename)))))
-     (list
-      (car
-       (binfile--get-symbol-and-filename
-        "Symbol to compare: " nil nil
-        (and binfile--symbol
-             (funcall binfile-symbol-transform-function
-                      binfile--symbol))
-        filename-a #'binfile-diff))
-      filename-a filename-b)))
-  (binfile-disassemble symbol filename-a)
-
-  (ignore-errors (kill-buffer binfile-disassembly-diff-buffer-a))
-  (ignore-errors (kill-buffer binfile-disassembly-diff-buffer-b))
-
-  (with-current-buffer binfile-disassembly-buffer
-    (let ((buffer-a (clone-buffer))
-          (buffer-b (current-buffer)))
-      (binfile-disassemble symbol filename-b)
-
-      (with-current-buffer buffer-a
-        (rename-buffer binfile-disassembly-diff-buffer-a)
-        (setq-local binfile--diff-filename filename-a)
-        (let ((buffer-read-only nil))
-          (save-excursion
-            (goto-char (point-min))
-            (insert "# File " filename-a "\n"))))
-      (with-current-buffer buffer-b
-        (rename-buffer binfile-disassembly-diff-buffer-b)
-        (setq-local binfile--diff-filename filename-b)
-        (let ((buffer-read-only nil))
-          (save-excursion
-            (goto-char (point-min))
-            (insert "# File " filename-b "\n"))))
-
-      (ediff-buffers buffer-a buffer-b))))
 
 
 ;; Minor mode
