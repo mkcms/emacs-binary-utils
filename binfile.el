@@ -40,11 +40,6 @@
 ;;
 ;;   Display a diff buffer for examining a difference between two disassembled
 ;;   binary files.
-;;
-;; - `binfile-symbol-info'
-;;
-;;   Prompt for a symbol and a binary filename, and display information about
-;;   that symbol.
 
 ;;; Code:
 
@@ -741,53 +736,6 @@ directive near the beginning of the buffer."
             (insert "# File " filename-b "\n"))))
 
       (ediff-buffers buffer-a buffer-b))))
-
-
-;; Symbol info
-
-(defconst binfile-symbol-info-buffer "*binfile symbol info*"
-  "Buffer for symbol info.")
-
-;;;###autoload
-(defun binfile-symbol-info (symbol filename)
-  "Display a buffer showing information about SYMBOL in binary file FILENAME."
-  (interactive
-   (binfile--get-symbol-and-filename "Info for symbol: "
-                                     nil nil nil nil
-                                     #'binfile-symbol-info))
-  (let* ((demangled (objdump-demangle symbol))
-         (symtab (objdump-read-symtab filename))
-         (data (gethash symbol symtab))
-         (insert-fn (lambda (label string)
-                      (insert (propertize (concat label ":") 'face 'bold)
-                              " " string "\n"))))
-    (unless data
-      (error "Symbol %S not found in file %s" symbol filename))
-    (let ((buffer (get-buffer-create binfile-symbol-info-buffer)))
-
-      (with-current-buffer buffer
-        (let ((buffer-read-only nil))
-          (erase-buffer)
-
-          (dolist (elt data)
-            (cl-destructuring-bind
-                (&key address section size flags &allow-other-keys) elt
-              (funcall insert-fn "File" filename)
-              (funcall insert-fn "Symbol" symbol)
-              (funcall insert-fn "Demangled name" demangled)
-              (funcall insert-fn "Section" section)
-              (funcall insert-fn "Start address"  (format "0x%x" address))
-              (funcall insert-fn "Stop address"
-                       (format "0x%x, size %s" (+ address size) size))
-              (funcall insert-fn "Flags" (format "%s" flags))
-
-              (insert "\n\n")))
-          (special-mode)
-          (binfile-mode +1))
-        (setq buffer-read-only t)
-        (setq truncate-lines t))
-
-      (display-buffer buffer))))
 
 
 ;; Minor mode

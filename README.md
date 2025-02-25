@@ -33,11 +33,6 @@ The other commands are:
   Display a diff buffer for examining a difference between two disassembled
   binary files.
 
-- `binfile-symbol-info`
-
-  Prompt for a symbol and a binary filename, and display information about that
-  symbol.
-
 
 ## `bdx.el` - Frontend for bdx ##
 
