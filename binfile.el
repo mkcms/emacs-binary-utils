@@ -36,12 +36,6 @@
 ;;
 ;; The other commands are:
 ;;
-;; - `binfile-insert-data'
-;;
-;;   Insert data (a symbol, a section, or an address range) from a binary file
-;;   into the current disassembly buffer.  It can be used to examine .data,
-;;   .rodata sections etc.
-;;
 ;; - `binfile-diff'
 ;;
 ;;   Display a diff buffer for examining a difference between two disassembled
@@ -116,25 +110,6 @@ When it returns non-nil, the relocation line is removed from the buffer.
 Values in this alist can also be lists of functions.  In this
 case, the functions are called in order, until one of them returns non-nil.")
 
-(defvar binfile-data-relocation-handler-alist nil
-  "Alist of relocation handler functions for raw data dumps.
-Keys are regexps which are matched against the relocation’s type.
-The handler functions are called with three arguments:
-  (RELOC-TYPE RELOC RELOC-ADDEND)
-
-where
-  RELOC-TYPE is the relocation type string,
-  RELOC is the relocated symbol,
-  RELOC-ADDEND is either nil or the relocation’s offset,
-
-The handler function must return a cons (NBYTES . DIRECTIVES),
-where NBYTES says how many bytes that relocation occupies and
-DIRECTIVES is a list of conses (DIRECTIVE . STRING) which are
-inserted, in order, in a place where the relocation ocurred.
-
-E.g. for R_X86_64_64 relocation the handler function should
-return (8 . ((\".8byte\" . \"symbol\"))).")
-
 (defcustom binfile-replace-insert-nondestructively 25000
   "Replace buffer contents nondestructively if it's size is less than this.
 
@@ -175,9 +150,6 @@ completion providers.")
 
 (defvar binfile-symbol-history nil
   "History variable for `binfile-disassemble'.")
-
-(defvar binfile-raw-symbol-history nil
-  "History variable for `binfile-insert-data'.")
 
 (defvar binfile--file)
 (defvar binfile-mode)
@@ -709,222 +681,6 @@ directive near the beginning of the buffer."
   (binfile-disassemble binfile--symbol binfile--file
                        (not (objdump-symbol-mangled-p binfile--symbol))
                        binfile--source-file))
-
-
-;; Raw data inspection
-
-(defun binfile--get-raw-data-as-directives
-    (filename section start-address stop-address)
-  "Get raw data from SECTION in FILENAME between START-ADDRESS:STOP-ADDRESS.
-The return value is a list of conses (DIRECTIVE . VALUE), where
-both DIRECTIVE and VALUE are strings to insert in the disassembly buffer."
-  (pcase-let ((`(,bytes ,relocs ,real-start-address)
-               (objdump-raw filename section start-address stop-address))
-              (relocs-by-offset))
-    (setq start-address real-start-address)
-
-    (setq relocs-by-offset
-          (mapcar (lambda (reloc) (cons (- (nth 0 reloc) start-address) reloc))
-                  relocs))
-
-    (cl-loop
-     with offset = 0
-     with length = (length bytes)
-
-     with region-contains-relocs-p =
-     (lambda (nbytes)
-       (cl-some (lambda (off) (map-elt relocs-by-offset (+ offset off)))
-                (number-sequence 0 (1- nbytes))))
-
-     while (< offset length)
-
-     for reloc = (map-elt relocs-by-offset offset)
-     if reloc
-     append
-     (pcase-let ((`(_ ,type ,symbol ,addend) reloc)
-                 (func)
-                 (directives))
-
-       (setq symbol (propertize symbol 'help-echo (objdump-demangle symbol)))
-
-       (setq func (cdr (cl-find-if (lambda (re) (string-match-p re type))
-                                   binfile-data-relocation-handler-alist
-                                   :key #'car)))
-
-       (if func
-           (pcase-let ((`(,nbytes . ,d)
-                        (funcall func type symbol addend)))
-             (setq directives d)
-             (cl-incf offset (max nbytes 1)))
-         (setq directives
-               (list
-                (cons (format "# Relocation to %s%s of type %s"
-                              symbol
-                              (if (and addend (not (zerop addend)))
-                                  (format "%s0x%x"
-                                          (if (cl-plusp addend) "+" "-")
-                                          (abs addend))
-                                "")
-                              type)
-                      "")
-                (cons ".byte" (number-to-string (seq-elt bytes offset)))))
-         (cl-incf offset 1))
-
-       directives)
-
-     else if (zerop (seq-elt bytes offset))
-     collect (let ((start offset))
-               (while (and (< offset length)
-                           (zerop (seq-elt bytes offset))
-                           (null (map-elt relocs-by-offset offset)))
-                 (cl-incf offset))
-               (cons ".zero" (number-to-string (- offset start))))
-
-     else if (and (< offset (- length 8))
-                  (not (funcall region-contains-relocs-p 8)))
-     collect (cons ".byte"
-                   (format "0x%x, 0x%x, 0x%x, 0x%x, 0x%x, 0x%x, 0x%x, 0x%x"
-                           (seq-elt bytes offset)
-                           (seq-elt bytes (+ offset 1))
-                           (seq-elt bytes (+ offset 2))
-                           (seq-elt bytes (+ offset 3))
-                           (seq-elt bytes (+ offset 4))
-                           (seq-elt bytes (+ offset 5))
-                           (seq-elt bytes (+ offset 6))
-                           (seq-elt bytes (+ offset 7))))
-     and do (cl-incf offset 8)
-
-     else if (and (< offset (- length 4))
-                  (not (funcall region-contains-relocs-p 4)))
-     collect (cons ".byte" (format "0x%x, 0x%x, 0x%x, 0x%x"
-                                   (seq-elt bytes offset)
-                                   (seq-elt bytes (+ offset 1))
-                                   (seq-elt bytes (+ offset 2))
-                                   (seq-elt bytes (+ offset 3))))
-     and do (cl-incf offset 4)
-
-     else
-     collect (cons ".byte" (format "0x%x" (seq-elt bytes offset)))
-     and do (cl-incf offset))))
-
-(defun binfile-insert-data
-    (section address &optional stop-address offset symbol)
-  "Dump contents of SECTION starting at ADDRESS in the ASM buffer.
-If STOP-ADDRESS is given, the dump stops at this address.
-
-If OFFSET is given, it is added to ADDRESS.  This is used for
-display purposes.
-
-SYMBOL can be an arbitrary name, that says what is being dumped.
-This is only for display purposes."
-  (interactive
-   (pcase-let*
-       ((full current-prefix-arg)
-        (at-pt (binfile--symbol-and-offset-at-point))
-        (`(,symbol ,filename)
-         (binfile--get-symbol-and-filename
-          "Dump symbol: " nil
-          (lambda (symbol filename)
-            (let ((data (car (gethash symbol (objdump-read-symtab filename)))))
-              (cl-destructuring-bind
-                  (&key section demangled flags &allow-other-keys) data
-                (if (string= demangled section)
-                    (format "Section %s" section)
-                  (format "%s in section %s%s" demangled section
-                          (if-let* ((interesting-flags
-                                     (delete nil
-                                             (list (when (memq 'function flags)
-                                                     "function")
-                                                   (when (memq 'object flags)
-                                                     "object")))))
-                              (format " [%s]"
-                                      (string-join interesting-flags
-                                                   ", "))
-                            ""))))))
-          nil nil #'binfile-insert-data))
-        (offset (if full
-                    (let ((s (read-string "Offset: "
-                                          (or (and (cdr at-pt)
-                                                   (format "0x%x" (cdr at-pt)))
-                                              "0x0")
-                                          nil "0")))
-                      (if (string-match "^\\([+-]\\)?0x\\([[:xdigit:]]+\\)" s)
-                          (* (string-to-number (match-string 2 s) 16)
-                             (if (equal "-" (match-string 1 s)) -1 1))
-                        (string-to-number s)))
-                  0))
-        (ent (gethash symbol (objdump-read-symtab filename)))
-        (data (car ent))
-        (size (plist-get data :size))
-        (size
-         (if full
-             (let ((s (read-string "Size: "
-                                   (and size (number-to-string size)))))
-               (if (string-match "0x\\([[:xdigit:]]+\\)" s)
-                   (string-to-number (match-string 1 s) 16)
-                 (string-to-number s)))
-           size)))
-     (list
-      (plist-get data :section)
-      (plist-get data :address)
-      (unless (or (null size) (zerop size))
-        (+ (plist-get data :address) size))
-      (if (zerop offset) nil offset)
-      symbol)))
-  (let ((data (and (not (string= ".bss" section))
-                   (binfile--get-raw-data-as-directives
-                    binfile--file section (+ address (or offset 0))
-                    (and stop-address
-                         (+ stop-address (or offset 0)))))))
-    (with-current-buffer binfile-disassembly-buffer
-      (goto-char (point-max))
-      (let ((buffer-read-only nil)
-            startpt)
-        (unless (looking-back "\n\n" (- (point) 2))
-          (insert "\n\n"))
-
-        (setq startpt (point))
-
-        (insert ".section " section "\n")
-
-        (when (or offset (> address 0))
-          (insert ".org " section " + " (format "0x%x" address))
-          (when offset
-            (let ((sign (if (cl-plusp offset) "+" "-")))
-              (insert " " sign " " (format "0x%x" (abs offset)))))
-          (insert "\n"))
-
-        (when (and symbol (not (string= symbol section)))
-          (unless offset
-            (when stop-address
-              (insert ".size "
-                      symbol ", "
-                      (number-to-string (- stop-address address))
-                      "\n"))
-            (insert (propertize symbol 'help-echo
-                                (objdump-demangle symbol))
-                    ":\n")))
-
-        (if data
-            (cl-loop for (directive . value) in data
-                     do (insert "\t" directive " " value "\n"))
-          (insert "\t" ".zero" " "
-                  (number-to-string
-                   (-
-                    (or (and stop-address (+ stop-address (or offset 0))) 0)
-                    (or (and address (+ address (or offset 0))) 0)))
-                  "\n"))
-
-        (goto-char startpt)
-        (let ((pulse-iterations 10)
-              (pulse-delay 0.15)
-              (recenter-positions '(middle)))
-          (unless (binfile--buffer-visible-p (current-buffer))
-            (pop-to-buffer (current-buffer)))
-          (pulse-momentary-highlight-region startpt (point-max))
-          (when (eq (current-buffer) (window-buffer))
-            ;; This condition is required for tests in -batch mode.
-            (recenter-top-bottom)))))))
 
 
 ;; Diffing

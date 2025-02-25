@@ -28,12 +28,6 @@ finding binary (.o) files for current buffer from `compile_commands.json` file.
 
 The other commands are:
 
-- `binfile-insert-data`
-
-  Insert data (a symbol, a section, or an address range) from a binary file
-  into the current disassembly buffer.  It can be used to examine .data,
-  .rodata sections etc.
-
 - `binfile-diff`
 
   Display a diff buffer for examining a difference between two disassembled
