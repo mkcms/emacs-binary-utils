@@ -5,7 +5,6 @@ files:
 
 - [`binfile.el`](#binfileel---prettify-disassembly)
 - [`bdx.el`](#bdxel---frontend-for-bdx)
-- [`objdump.el`](#objdumpel---a-library-for-working-with-objdump-utility)
 - [`asm-data.el`](#asm-datael---conversion-between-data-representations-in-asm-buffers)
 - [`asm-jump.el`](#asm-jumpel---buttons-for-jumps-in-asm-mode)
 - [`asm2src.el`](#asm2srcel---asm-to-source-file-overlays)
@@ -63,35 +62,6 @@ It also provides these API functions:
 - `bdx-generate-graph-image`
 
   Generate a graph image from two queries, and return it's path.
-
-## `objdump.el` - A library for working with `objdump` utility ##
-
-This library provides functions for working with the objdump program.  It can
-read the symbol table, disassemble code, extract contents of sections,
-mangle/demangle names.
-
-The API functions are:
-
-- `objdump-file-dynamic-p`
-
-  Check if file is dynamic.
-
-- `objdump-read-symtab`
-
-  Read the symbol table from a file.
-
-- `objdump-mangle`, `objdump-demangle`, `objdump-symbol-mangled-p`,
-`objdump-symbol-demangled-p`
-
-  Mangle and demangle symbols; check if they are mangled.
-
-- `objdump-disassemble`
-
-  Disassemble a portion of a code section.
-
-- `objdump-raw`
-
-  Get the raw contents of a section.
 
 ## `asm-data.el` - Conversion between data representations in ASM buffers ##
 

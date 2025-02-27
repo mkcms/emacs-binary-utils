@@ -32,7 +32,6 @@
 (require 'binfile)
 (require 'compdb)
 (require 'compiled-file)
-(require 'objdump)
 
 (provide 'emacs-binary-utils)
 ;;; emacs-binary-utils.el ends here

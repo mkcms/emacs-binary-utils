@@ -14,8 +14,6 @@ FILES :=                        \
         binfile.el              \
         compdb.el               \
         compiled-file.el        \
-        objdump-test.el         \
-        objdump.el              \
 
 ELC := $(FILES:.el=.elc)
 
@@ -63,7 +61,6 @@ lint:
 	  binfile.el                                                          \
 	  compdb.el                                                           \
 	  compiled-file.el                                                    \
-	  objdump.el                                                          \
 	);                                                                    \
 	for f in $${files[@]}; do                                             \
 	    lint=$$(mktemp)                                                   \
