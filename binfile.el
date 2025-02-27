@@ -1,4 +1,4 @@
-;;; binfile.el --- Disassemble binary files     -*- lexical-binding: t; -*-
+;;; binfile.el --- Prettify disassembly     -*- lexical-binding: t; -*-
 
 ;; Copyright (C) 2022-2024  Michał Krzywkowski
 
@@ -21,37 +21,28 @@
 
 ;;; Commentary:
 ;;
-;; An extendable package for examining binary files.  It can disassemble many
-;; types of ELF files and postprocess the results to be more easily readable
-;; (e.g. it can parse relocations reported by objdump and output them
-;; intermixed with code).
-;;
-;; The main command is `binfile-disassemble', which prompts for a function name
-;; (by default, the function at point) and, if it can't be guessed, a binary
-;; file.  The binary file is by default provided by `compiled-file.el' library.
-;;
-;; Using `compdb-output-filename' as `compiled-file-function' allows
-;; automatically finding binary (.o) files for current buffer from
-;; "compile_commands.json" file.
+;; This package provides the function `binfile-postprocess-buffer' which
+;; prettifies objdump disassembly in the current buffer and makes it easier to
+;; read and follow by stripping addresses, adding labels for jump targets,
+;; removing useless comments, and some other things.
+
+;; By default it works on objdump output (and is optimized for x86
+;; architecture) but you can set `binfile-region-postprocessing-functions',
+;; `binfile-region-postprocessing-functions-alist' and
+;; `binfile-file-format-function' for your own needs to work with different
+;; disassemblers/architectures.
 
 ;;; Code:
 
 (require 'cl-lib)
-(require 'compiled-file)
 (require 'map)
-(require 'objdump)
-(require 'project)
-(require 'pulse)
 (require 'rx)
-(require 'seq)
-(require 'subr-x)
-(require 'which-func)
 
-(defgroup binfile nil "Disassemble binary files."
+(defgroup binfile nil "Prettify disassembly."
   :group 'languages
   :group 'tools)
 
-(defvar binfile-postprocessing-functions
+(defvar binfile-region-postprocessing-functions
   '(
     binfile-postprocess-relocations
     binfile-postprocess-local-jumps
@@ -60,20 +51,21 @@
     binfile-postprocess-numeric-to-symbolic-references
     binfile-postprocess-unused-symbolic-local-references
     )
-  "List of functions that postprocess objdump's disassembly regions.
+  "List of functions that postprocess ASM regions.
 Each function is called with three arguments (BEG END NAME),
 where BEG and END are region bounds and NAME is the name of the
 symbol disassembled in that region (function name).")
 
-(defvar binfile-arch-postprocessing-function-alist nil
-  "Alist of functions to call per file format.
-Keys are regexps which are matched against the file format of
-binary file.  Values are functions which are called with three
-arguments (BEG END NAME).  BEG and END are buffer regions to
-process, NAME is the function name in that region.")
+(defvar binfile-buffer-postprocessing-functions nil
+  "List of functions to call when postprocessing the buffer.
+This is called at the end of `binfile-postprocess-buffer'.")
 
-(defvar binfile-disassembly-prologue nil
-  "Value to insert at buffer beginning.")
+(defvar binfile-region-postprocessing-functions-alist nil
+  "Alist of functions to call per file format.
+Keys are regexps which are matched against the file format of binary
+file, e.g. \"elf64-x86-64\".  Values are functions which are called with
+three arguments (BEG END NAME).  BEG and END are buffer regions to
+process, NAME is the function name in that region.")
 
 (defvar binfile-relocation-handler-alist nil
   "Alist of relocation handler functions.
@@ -97,194 +89,6 @@ When it returns non-nil, the relocation line is removed from the buffer.
 
 Values in this alist can also be lists of functions.  In this
 case, the functions are called in order, until one of them returns non-nil.")
-
-(defcustom binfile-replace-insert-nondestructively 25000
-  "Replace buffer contents nondestructively if it's size is less than this.
-
-When disassembling, the output of objdump is inserted into a
-temporary buffer; if the size of this temporary buffer is less
-than this, and if the size of the current *disassembly* buffer is
-less than this value, the contents of *disassembly* are replaced
-with the contents of the temporary buffer with
-`replace-buffer-contents'.  This is slow for large buffers, but
-has the advantage of properly preserving point.
-
-If the size of any of the two buffers is larger than this, the
-contents are replaced destructively and point is not preserved."
-  :type 'integer)
-
-(defvar binfile-scan-for-symbol-at-point-limit 40000
-  "Search for symbol at point only at most this many times.
-If an object file contains more than that many symbols, a scan
-for demangled symbols in it is not performed when searching for
-the symbol at point.")
-
-(defvar binfile-symbol-transform-function #'identity
-  "Function which transforms a symbol before putting it to minibuffer.
-Normally this is `identity', e.g. no transformation is performed;
-but this can be set e.g. to `regexp-quote' to work with custom
-completion providers.")
-
-(defvar binfile-disassembly-hook nil "Hook called after disassembly.")
-
-(defconst binfile-disassembly-buffer "*disassembly*"
-  "Buffer with disassembled code.")
-
-(defvar binfile-symbol-history nil
-  "History variable for `binfile-disassemble'.")
-
-(defvar binfile--file)
-(defvar binfile-mode)
-
-
-;; Symbol at point; reading symbols
-
-(defun binfile--demangled-symbols (filename &optional include-empty)
-  "Read demangled symbols from file named FILENAME.
-If INCLUDE-EMPTY is non-nil, don't filter-out empty (no size
-prop) symbols."
-  (map-apply
-   (lambda (_k v) (plist-get (car v) :demangled))
-   (map-filter
-    (lambda (_name defs)
-      ;; Only symbols with non-zero size
-      (cl-notany (if include-empty #'ignore #'zerop)
-                 (mapcar (lambda (x) (plist-get x :size)) defs)))
-    (objdump-read-symtab filename))))
-
-(defun binfile--symbol-and-offset-at-point ()
-  "Get symbol and offset at point, if available.
-
-The return value is either nil or a cons (SYMBOL . OFFSET).
-OFFSET is always an integer.  SYMBOL is always demangled."
-  (let ((pt (point)) found bounds)
-    (when-let* ((symtab (and binfile--file
-                             (file-readable-p binfile--file)
-                             (objdump-read-symtab binfile--file))))
-      (when (< (hash-table-count symtab)
-               binfile-scan-for-symbol-at-point-limit)
-        (catch 'done
-          (save-excursion
-            (goto-char (line-beginning-position))
-            (map-do
-             (lambda (symbol data)
-               (save-excursion
-                 (let ((demangled (plist-get (car data) :demangled)))
-                   (when (string-match "^[.]hidden " demangled)
-                     (setq demangled (replace-match "" nil nil demangled)))
-                   (when (and (search-forward demangled (line-end-position) t)
-                              (<= (match-beginning 0) pt (match-end 0)))
-                     (setq found symbol
-                           bounds (cons (match-beginning 0) (match-end 0)))
-                     (throw 'done t)))))
-             symtab)))))
-
-    (save-match-data
-      (when-let* ((bounds (or bounds (bounds-of-thing-at-point 'symbol)))
-                  (symbol (or found (thing-at-point 'symbol t)))
-                  (offset 0))
-        (when (string-match "\\([+-]\\)0x\\([[:xdigit:]]+\\)$" symbol)
-          (setq offset (* (string-to-number (match-string 2 symbol) 16)
-                          (if (string= "+" (match-string 1 symbol))
-                              1 -1))
-                symbol (replace-match "" nil nil symbol)))
-        (when (zerop offset)
-          (save-excursion
-            (goto-char (cdr bounds))
-            (when (looking-at "\\([+-]\\)0x\\([[:xdigit:]]+\\)")
-              (setq offset (* (string-to-number (match-string 2) 16)
-                              (if (string= "+" (match-string 1))
-                                  1 -1))))))
-        (cons (objdump-demangle symbol) (or offset 0))))))
-
-(defvar binfile--symbol-alist-cache nil
-  "Cache of pretty symbol names to mangled names.
-Keys are conses (FILENAME . CALLER), where CALLER is the argument
-to `binfile--get-symbol-and-filename', a Lisp symbol.
-
-Values are conses (MTIME . ALIST), where MTIME is the FILENAME's
-modification time and ALIST is an alist of
-  (TRANSFORMED-SYMBOL . MANGLED-SYMBOL); TRANSFORMED-SYMBOL is
-the result of calling symbol-transformer function with
-MANGLED-SYMBOL as an argument.")
-
-(defun binfile--get-symbol-and-filename (prompt &optional interactive
-                                                symbol-transformer
-                                                initial-input
-                                                filename
-                                                caller)
-  "Get a symbol and filename using `completing-read' with PROMPT.
-
-The return value is a list (MANGLED-SYMBOL FILENAME).
-
-If INTERACTIVE is a number, the user is asked to select the file,
-otherwise an attempt is made to guess it first.
-
-If SYMBOL-TRANSFORMER is provided, it should be a function that
-accepts two arguments (MANGLED-SYMBOL FILENAME) and returns a
-string that is presented to the user in the minibuffer for each
-symbol.
-
-If the minor mode `binfile-mode' is enabled, this function tries
-to get the symbol at point.  If it's found, it is used as initial
-input for `completing-read'.  Otherwise, INITIAL-INPUT is used.
-
-If FILENAME is provided, it is returned as is, and possible
-candidates are read from that file.
-
-CALLER should be a symbol for the calling function.  It is used
-for caching purposes."
-  (or symbol-transformer
-      (setq symbol-transformer (lambda (sym _filename)
-                                 (objdump-demangle sym))))
-
-  (let* ((filename (or filename
-                       (and (numberp interactive)
-                            (read-file-name "Select compiled file: "))
-                       (and binfile-mode binfile--file)
-                       (compiled-file)
-                       (read-file-name  "Select compiled file: ")))
-
-         (existing-symbol-at-pt
-          (and binfile-mode
-               (car (binfile--symbol-and-offset-at-point))))
-
-         (initial-input (or existing-symbol-at-pt initial-input))
-
-         (all-symbols
-          (or
-           (when-let* ((cache (alist-get (cons filename caller)
-                                         binfile--symbol-alist-cache
-                                         nil nil #'equal))
-                       (mtime (binfile--file-mtime filename)))
-             (and (equal mtime (car cache)) (cdr cache)))
-           (mapcar (lambda (sym)
-                     (cons (funcall symbol-transformer sym filename)
-                           sym))
-                   (map-keys (objdump-read-symtab filename)))))
-
-         selected)
-    (setf (map-elt binfile--symbol-alist-cache
-                   (cons filename caller))
-          (cons (binfile--file-mtime filename) all-symbols))
-    (prog1
-        (list (objdump-mangle
-               (progn (setq selected
-                            (completing-read
-                             prompt all-symbols
-                             nil t
-                             (and initial-input
-                                  (funcall
-                                   binfile-symbol-transform-function
-                                   initial-input))
-                             'binfile-symbol-history))
-                      (alist-get selected all-symbols nil nil #'string=)))
-              filename)
-      (when (equal selected (car binfile-symbol-history))
-        (pop binfile-symbol-history))
-      (add-to-history
-       'binfile-symbol-history
-       (funcall binfile-symbol-transform-function selected)))))
 
 
 ;; Relocation processing
@@ -434,41 +238,38 @@ Group 1 is the symbol.")
   (while (re-search-forward binfile--symbolic-reference-regexp nil t)
     (replace-match " \\1")))
 
-(defvar binfile-file-format)
+
+;; Disassembly
 
-(defun binfile--postprocess-region (beg end name)
-  "Process disassembled region named NAME, spanning BEG END."
-  (save-excursion
+(defvar binfile-file-format nil
+  "File format of the region being processed, e.g. \"elf64-x86-64\".
+This is let-bound to the return value of
+`binfile-file-format-function' for each region and is used to
+select the proper postprocessing and relocation handling functions.")
+
+(defvar binfile-file-format-function #'binfile-file-format-function-objdump
+  "Function used to find the `binfile-file-format' for the region at point.
+When this function is called, the buffer is narrowed to the region bounds.")
+
+(defvar binfile-next-region-function #'binfile-next-region-function-objdump
+  "Function used to find the next region to postprocess.
+It must either return nil to stop processing the buffer, or a
+list of 3 elements (BEG END NAME), where BEG and END are the
+buffer positions where the region starts/ends, and NAME is the
+name of the function/section/object/etc. in that region.")
+
+(defun binfile-file-format-function-objdump ()
+  "Find file format from objdump output.
+This finds file format by searching for this line:
+
+/path/to/file.o:     file format elf64-x86-64"
+  (save-match-data
     (save-restriction
       (widen)
-      (narrow-to-region beg end)
-      (goto-char beg)
+      (when (re-search-backward "^.*:.*file format \\(.*\\)" nil t)
+        (match-string-no-properties 1)))))
 
-      ;; Add text properties to each line, for debugging
-      (save-excursion
-        (cl-loop until (eobp)
-                 do (put-text-property
-                     (line-beginning-position) (line-end-position)
-                     'binfile-original
-                     (buffer-substring-no-properties (line-beginning-position)
-                                                     (line-end-position)))
-                 do (forward-line 1)))
-
-      (dolist (func binfile-postprocessing-functions)
-        (save-excursion
-          (save-restriction
-            (funcall func (point-min) (point-max) name))))
-
-      (when-let* ((fmt binfile-file-format)
-                  (func (cdr (cl-find-if
-                              (lambda (re) (string-match-p re fmt))
-                              binfile-arch-postprocessing-function-alist
-                              :key #'car))))
-        (save-excursion (funcall func beg end name)))
-
-      (delete-trailing-whitespace (point-min) (point-max)))))
-
-(defvar binfile--function-start-regexp
+(defvar binfile--objdump-region-start-regexp
   ;; 00000000000fa <foo(int)>:
   (rx
    bol
@@ -479,204 +280,69 @@ Group 1 is the symbol.")
    ?< (group (* any)) ?> ?:
 
    eol)
-  "A regexp matching function beginning in disassembled output.
+  "A regexp matching function beginning in objdump disassembly output.
 Group 1 is hex address, group 2 is function name.")
 
-(defun binfile--replace-buffer-contents (target source)
-  "Replace contents of buffer TARGET with SOURCE.
-Returns TARGET."
-  (let ((limit binfile-replace-insert-nondestructively)
-        (pr (make-progress-reporter "Inserting output")))
-    (unwind-protect
-        (with-current-buffer target
-          (let ((buffer-read-only nil))
-            (prog1 target
-              (if (and (< (buffer-size target) limit)
-                       (< (buffer-size source) limit))
-                  (replace-buffer-contents source)
-                (erase-buffer)
-                (insert-buffer-substring source)))))
-      (progress-reporter-done pr))))
+(defun binfile-next-region-function-objdump ()
+  "Find the next region in buffer containing objdump -D output."
+  (when (re-search-forward binfile--objdump-region-start-regexp nil t)
+    (let* ((name (match-string 2))
+           (beg (move-marker (make-marker) (1+ (match-end 0))))
+           (end (move-marker
+                 (make-marker)
+                 (or (save-match-data
+                       (and (or
+                             (re-search-forward
+                              "^Disassembly of section" nil t)
+                             (re-search-forward
+                              binfile--objdump-region-start-regexp nil t))
+                            (match-beginning 0)))
+                     (point-max)))))
+      (replace-match "\\2:")
+      (list beg end name))))
 
-
-;; Disassembly
+(defun binfile--postprocess-region (beg end name)
+  "Process disassembled region named NAME, spanning BEG END."
+  (save-excursion
+    (save-restriction
+      (widen)
+      (narrow-to-region beg end)
+      (goto-char beg)
 
-(defvar binfile--file nil "Current object file.")
-(defvar binfile--source-file nil "Current source file.")
-(defvar binfile--symbol nil "Currently disassembled symbol.")
+      (let* ((fmt (save-excursion (funcall binfile-file-format-function)))
+             (binfile-file-format fmt))
 
-(defvar binfile-file-format nil
-  "Disassembled file format string, e.g. \"elf64-x86-64\".")
+        (dolist (func binfile-region-postprocessing-functions)
+          (save-excursion
+            (save-restriction
+              (funcall func (point-min) (point-max) name))))
 
-(defun binfile--disassemble (symbol section filename start-address end-address
-                                    &optional demangle source-file)
-  "Disassemble SYMBOL in SECTION of FILENAME between START-ADDRESS:END-ADDRESS.
-If DEMANGLE is non-nil, don't demangle symbols.
+        (when-let* ((func
+                     (and fmt
+                          (cdr (cl-find-if
+                                (lambda (re) (string-match-p re fmt))
+                                binfile-region-postprocessing-functions-alist
+                                :key #'car)))))
+          (save-excursion (funcall func beg end name)))
 
-If SOURCE-FILE is provided, then insert that as \\='.file\\='
-directive."
-  (setq binfile--file filename)
-  (setq binfile--source-file source-file)
-  (setq binfile--symbol symbol)
-  (if demangle
-      (setq symbol (objdump-demangle symbol))
-    (setq symbol (objdump-mangle symbol)))
-  (objdump-disassemble filename section start-address end-address
-                       :demangle demangle
-                       :reloc t)
+        (delete-trailing-whitespace (point-min) (point-max))))))
+
+(defun binfile-postprocess-buffer ()
+  "Postprocess the entire current buffer."
   (goto-char (point-min))
-  (when binfile-disassembly-prologue
-    (insert binfile-disassembly-prologue "\n"))
-  (insert "; file \"" filename "\"\n")
-  (when source-file
-    (insert ".file \"" source-file "\"\n"))
-  (setq binfile-file-format objdump-file-format)
-
-  (save-excursion
-    ;; Postprocess all regions.
-    (let ((pr (make-progress-reporter "Postprocessing disassembly"
-                                      (point-min) (point-max))))
-      (unwind-protect
-          (while (re-search-forward binfile--function-start-regexp nil t)
-            (progress-reporter-update pr (point))
-            (let* ((name (match-string 2))
-                   (beg (move-marker (make-marker) (1+ (match-end 0))))
-                   (end (move-marker
-                         (make-marker)
-                         (or (save-match-data
-                               (and (or
-                                     (re-search-forward
-                                      "^Disassembly of section" nil t)
-                                     (re-search-forward
-                                      binfile--function-start-regexp nil t))
-                                    (match-beginning 0)))
-                             (point-max)))))
-
-              ;; Postprocess the region.
-              (replace-match "\\2:")
-              (binfile--postprocess-region beg end name)))
-        (progress-reporter-done pr))))
-
-  (save-excursion
-    ;; Rewrite to have standard ASM .section directives.
-    (while (re-search-forward "^Disassembly of section \\(.*\\):" nil t)
-      (replace-match ".section \\1")))
-
-  (save-excursion
-    ;; Remove empty sections
-    (while (re-search-forward "^[.]section .*$" nil t)
-      (let* ((start (match-beginning 0))
-             (contents-start (1+ (match-end 0)))
-             (next-section-start
-              (or (save-excursion
-                    (and (re-search-forward "^[.]section .*$" nil t)
-                         (match-beginning 0)))
-                  (point-max)))
-             (contents (buffer-substring contents-start next-section-start)))
-        (when (< (length contents) 5)
-          (delete-region start next-section-start))))))
-
-(defvar binfile-mode)
-
-(defun binfile--buffer-visible-p (buffer)
-  "Check if any window is showing BUFFER."
-  (cl-some (lambda (w) (eq (window-buffer w) buffer))
-           (cl-reduce #'nconc
-                      (mapcar #'window-list (frame-list)))))
-
-(defun binfile--file-mtime (filename)
-  "Return modification time of file FILENAME."
-  (file-attribute-modification-time (file-attributes filename)))
-
-;;;###autoload
-(defun binfile-disassemble (symbol filename &optional mangled source-file)
-  "Disassemble SYMBOL in object FILENAME.
-Interactively, this selects the function at point and the proper
-object file.  If there are multiple candidates for disassembly,
-asks (with completion) to select the symbol to disassemble.
-
-If MANGLED is non-nil, don't demangle symbols.
-
-If SOURCE-FILE is non-nil, then it is inserted as \\='.file\\='
-directive near the beginning of the buffer."
-  (interactive
-   (append
-    (binfile--get-symbol-and-filename
-     "Disassemble symbol: " current-prefix-arg
-     nil
-     (and (not binfile-mode) (or (which-function)
-                                 (thing-at-point 'symbol t)))
-     nil
-     #'binfile-disassemble)
-    (list nil (buffer-file-name))))
-  (setq filename (expand-file-name filename))
-  (pcase-let* ((`(,address ,size ,section)
-                (if-let* ((mangled-name (objdump-mangle symbol))
-                          (entry
-                           (or
-                            (car (gethash mangled-name
-                                          (objdump-read-symtab filename)))
-                            (car (gethash
-                                  (format ".hidden %s" mangled-name)
-                                  (objdump-read-symtab filename))))))
-                    (list (plist-get entry :address)
-                          (plist-get entry :size)
-                          (plist-get entry :section))
-                  (error "Symbol %S not found in %S" symbol filename)))
-               (end-address (+ address size)))
-    (setq symbol (if mangled (objdump-mangle symbol)
-                   (objdump-demangle symbol)))
-    (when (<= end-address address)
-      (setq end-address most-positive-fixnum))
-    (with-current-buffer (get-buffer-create binfile-disassembly-buffer)
-      (setq default-directory (file-name-directory filename))
-      (let ((buffer-read-only nil)
-            (target (current-buffer)))
-        (with-temp-buffer
-          (let ((source (current-buffer)))
-            (binfile--disassemble symbol section filename address end-address
-                                  (not mangled) source-file)
-            (with-current-buffer target
-              (set-text-properties (point-min) (point-max) nil)
-              (delete-all-overlays)
-              (unless (binfile--buffer-visible-p target)
-                (delete-region (point-min) (point-max)))
-              (binfile--replace-buffer-contents target source)))))
-      (asm-mode)
-      (binfile-mode +1)
-      (setq buffer-read-only t)
-      (setq truncate-lines t)
-      (setq buffer-undo-list t)
-      (display-buffer (current-buffer))
-
-      (run-hooks 'binfile-disassembly-hook)
-      (hack-local-variables)
-
-      (when (and source-file
-                 (time-less-p (binfile--file-mtime filename)
-                              (binfile--file-mtime source-file)))
-        (message "Note: object file is older than the source file")))))
-
-(defun binfile-toggle-name-mangling ()
-  "Disassemble the current buffer again, toggling mangling of symbol names."
-  (interactive)
-  (binfile-disassemble binfile--symbol binfile--file
-                       (not (objdump-symbol-mangled-p binfile--symbol))
-                       binfile--source-file))
-
-
-;; Minor mode
-
-(defvar binfile-mode-map
-  (let ((map (make-keymap)))
-    (define-key map (kbd "g") #'binfile-disassemble)
-    map)
-  "Map for `binfile-mode'.")
-
-(define-minor-mode binfile-mode
-  "Minor mode for ASM buffers."
-  :keymap binfile-mode-map
-  :lighter " binfile")
+  (let ((pr (make-progress-reporter "Post-processing disassembly"
+                                    (point-min) (point-max))))
+    (cl-loop
+     do (progress-reporter-update pr (point))
+     while (not (eobp))
+     for region = (funcall binfile-next-region-function)
+     while region
+     for (beg end name) = region
+     do (goto-char beg)
+     do (binfile--postprocess-region beg end name)
+     do (goto-char end)
+     finally do (progress-reporter-done pr)))
+  (run-hooks 'binfile-buffer-postprocessing-functions))
 
 (provide 'binfile)
 ;;; binfile.el ends here

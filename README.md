@@ -3,7 +3,7 @@
 This repository contains a bunch of Emacs packages for working with binary
 files:
 
-- [`binfile.el`](#binfileel---disassemble-binary-files)
+- [`binfile.el`](#binfileel---prettify-disassembly)
 - [`bdx.el`](#bdxel---frontend-for-bdx)
 - [`objdump.el`](#objdumpel---a-library-for-working-with-objdump-utility)
 - [`asm-data.el`](#asm-datael---conversion-between-data-representations-in-asm-buffers)
@@ -12,20 +12,18 @@ files:
 - [`compiled-file.el`](#compiled-fileel---getset-the-compiled-file-for-current-source-file)
 - [`compdb.el`](#compdbel---work-with-compilation-databases)
 
-## `binfile.el` - Disassemble binary files ##
+## `binfile.el` - Prettify disassembly ##
 
-An extendable package for examining binary files.  It can disassemble many
-types of ELF files and postprocess the results to be more easily readable
-(e.g. it can parse relocations reported by objdump and output them intermixed
-with code).
+This package provides the function `binfile-postprocess-buffer` which
+prettifies objdump disassembly in the current buffer and makes it easier to
+read and follow by stripping addresses, adding labels for jump targets,
+removing useless comments, and some other things.
 
-The main command is `binfile-disassemble`, which prompts for a function name
-(by default, the function at point) and, if it can't be guessed, a binary file.
-The binary file is by default provided by `compiled-file.el` library.
-
-Using `compdb-output-filename` as `compiled-file-function` allows automatically
-finding binary (.o) files for current buffer from `compile_commands.json` file.
-
+By default it works on objdump output (and is optimized for x86 architecture)
+but you can set `binfile-region-postprocessing-functions`,
+`binfile-region-postprocessing-functions-alist` and
+`binfile-file-format-function` for your own needs to work with different
+disassemblers/architectures.
 
 ## `bdx.el` - Frontend for bdx ##
 
@@ -154,10 +152,12 @@ buffer for file mappings, it must be called once before further usage.
 
 When using `binfile` and the rest of the packages here, you should add:
 
-    (setq objdump-disassembly-extra-args '("-l"))
-    (add-hook 'binfile-disassembly-hook #'asm2src-process-buffer)
+    (setq bdx-disassembler-options
+          (concat bdx-disassembler-options " --line-numbers"))
+    (add-hook 'binfile-buffer-postprocessing-functions
+              #'asm2src-process-buffer)
 
-To your init file.  The first line makes objdump output source file mappings
+To your init file.  The first sexp makes objdump output source file mappings
 when dumping disassembly, and the second makes sure we can parse and use that
 in Emacs.
 

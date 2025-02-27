@@ -29,10 +29,12 @@
 ;;
 ;; When using `binfile' and the rest of the packages here, you should add:
 ;;
-;;     (setq objdump-disassembly-extra-args '("-l"))
-;;     (add-hook 'binfile-disassembly-hook #'asm2src-process-buffer)
+;;   (setq bdx-disassembler-options
+;;         (concat bdx-disassembler-options " --line-numbers"))
+;;   (add-hook 'binfile-buffer-postprocessing-functions
+;;             #'asm2src-process-buffer)
 ;;
-;; To your init file.  The first line makes objdump output source file mappings
+;; To your init file.  The first sexp makes objdump output source file mappings
 ;; when dumping disassembly, and the second makes sure we can parse and use
 ;; that in Emacs.
 ;;

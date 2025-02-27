@@ -94,27 +94,6 @@ This returns a string like \"reloc+0x1a\".  ADDEND can be nil."
      (asm-x86--reloc-replace-0x0
       reloc-type reloc reloc-address reloc-addend function-name))))
 
-(defun asm-x86--data-reloc-64 (type reloc addend)
-  "Handle x64 TYPE RELOC with ADDEND."
-  (pcase type
-    ('"R_X86_64_64"
-     (cons 8 (list
-              (cons ".8byte"
-                    (asm-x86--format-reloc-and-addend reloc addend)))))
-    ('"R_X86_64_PC32"
-     (cons 4 (list
-              (cons ".4byte"
-                    (asm-x86--format-reloc-and-addend
-                     reloc addend)))))
-    (_
-     (cons 1 (list
-              (cons (format "# Relocation to %s of type %s"
-                            (asm-x86--format-reloc-and-addend
-                             reloc addend)
-                            type)
-                    "")
-              (cons ".byte" "0"))))))
-
 (defun asm-x86--postprocess (_beg _end _name)
   "Do final cleanups on x86 binaries."
   (save-excursion
@@ -147,10 +126,7 @@ This returns a string like \"reloc+0x1a\".  ADDEND can be nil."
   (setf (map-elt binfile-relocation-handler-alist "^R_X86_64_.*")
         #'asm-x86--reloc-64)
 
-  (setf (map-elt binfile-data-relocation-handler-alist "^R_X86_64_.*")
-        #'asm-x86--data-reloc-64)
-
-  (setf (map-elt binfile-arch-postprocessing-function-alist "elf64-x86-64")
+  (setf (map-elt binfile-region-postprocessing-functions-alist "elf64-x86-64")
         #'asm-x86--postprocess))
 
 (provide 'asm-x86)

@@ -44,27 +44,13 @@
               (,gcc-rv nil)
               (,dir (make-temp-file "binfile-test" t))
               (default-directory ,dir)
-              (objdump--symtab-cache (make-hash-table :test #'equal))
-              (objdump--mangled-to-demangled-names
-               (make-hash-table :test #'equal))
-              (objdump--demangled-to-mangled-names
-               (make-hash-table :test #'equal))
-              (objdump--flags-cache (make-hash-table :test #'equal))
-              (objdump-disassembly-extra-args nil)
-              (objdump-disassembly-extra-args-alist nil)
 
-              binfile--file
-              binfile--symbol
-              binfile--symbol-alist-cache
-
-              binfile-disassembly-hook
-              binfile-disassembly-prologue
               binfile-file-format
-              binfile-mode-hook
 
-              (binfile-relocation-handler-alist '(("^R_X86_64_.*" . asm-x86--reloc-64)))
-              (binfile-data-relocation-handler-alist '(("^R_X86_64_.*" . asm-x86--data-reloc-64)))
-              (binfile-arch-postprocessing-function-alist '(("elf64-x86-64" . asm-x86--postprocess))))
+              (binfile-relocation-handler-alist
+               '(("^R_X86_64_.*" . asm-x86--reloc-64)))
+              (binfile-region-postprocessing-functions-alist
+               '(("elf64-x86-64" . asm-x86--postprocess))))
          (with-temp-file ,src-filename
            (insert ,src))
          (with-temp-buffer
@@ -75,8 +61,26 @@
              (error "GCC failed with code %s, src %s, dst %s, dir %s, args %s:\n\n%s"
                     ,gcc-rv ,src-filename ,out-filename default-directory ,opts
                     (buffer-string))))
-         ,@body
-         (delete-directory ,dir t)))))
+         (prog1 (progn ,@body)
+           (delete-directory ,dir t))))))
+
+(defmacro binfile-test-with-disassembly (program options &rest body)
+  (declare (indent 2) (debug (form form body)))
+  (let ((opts (cl-gensym))
+        (rv (cl-gensym))
+        (prog (cl-gensym)))
+    `(with-temp-buffer
+       (let* ((,prog ,program)
+              (,opts ,options)
+              (,rv nil))
+         (with-temp-buffer
+           (message "Running %s with args %S in dir %s" ,prog ,opts default-directory)
+           (setq ,rv (apply #'call-process ,prog nil (current-buffer) nil ,opts))
+           (unless (zerop ,rv)
+             (error "Disassembler failed with code %s, dir %s, args %s:\n\n%s"
+                    ,rv default-directory ,opts
+                    (buffer-string)))
+           ,@body)))))
 
 (ert-deftest binfile-disassembly ()
   (binfile-test
@@ -84,13 +88,13 @@
 int foo(int x) { return x + 1; }
 "
       "file.o" "gcc" '("-c")
-    (binfile-disassemble "foo" "file.o" nil (expand-file-name "file.c"))
-    (with-current-buffer binfile-disassembly-buffer
+    (binfile-test-with-disassembly "objdump"
+        '("--disassemble=foo" "-Mintel" "--no-show-raw-insn" "file.o")
+      (binfile-postprocess-buffer)
       (goto-char (point-min))
-      (should (search-forward (format "; file %S" (expand-file-name "file.o"))))
-      (should (search-forward (format ".file %S" (expand-file-name "file.c"))))
-      (should (search-forward ".section .text"))
       (should (search-forward "foo:"))
+      (should (re-search-forward "^	push   rbp"))
+      (should (re-search-forward "^	add    eax,0x1"))
       (should (search-forward "ret")))))
 
 (ert-deftest binfile-disassembly-c++ ()
@@ -99,12 +103,13 @@ int foo(int x) { return x + 1; }
 int foo(int x) { return x + 1; }
 "
       "file.o" "g++" '("-c")
-    (binfile-disassemble "_Z3fooi" "file.o")
-    (with-current-buffer binfile-disassembly-buffer
+    (binfile-test-with-disassembly "objdump"
+        '("--disassemble=_Z3fooi" "-Mintel" "--no-show-raw-insn" "file.o")
+      (binfile-postprocess-buffer)
       (goto-char (point-min))
-      (should (search-forward (format "; file %S" (expand-file-name "file.o"))))
-      (should (search-forward ".section .text"))
-      (should (search-forward "foo(int):"))
+      (should (search-forward "_Z3fooi:"))
+      (should (re-search-forward "^	push   rbp"))
+      (should (re-search-forward "^	add    eax,0x1"))
       (should (search-forward "ret")))))
 
 (ert-deftest binfile-disassembly-with-relocation ()
@@ -114,46 +119,12 @@ extern int bar();
 int foo() { return bar(); }
 "
       "file.o" "g++" '("-c")
-    (let ((objdump-disassembly-extra-args '("-M" "intel")))
-      (binfile-disassemble "_Z3foov" "file.o"))
-    (with-current-buffer binfile-disassembly-buffer
+    (binfile-test-with-disassembly "objdump"
+        '("--disassemble=_Z3foov" "-r" "-Mintel" "--no-show-raw-insn" "file.o")
+      (binfile-postprocess-buffer)
       (goto-char (point-min))
-      (should (search-forward ".section .text"))
-      (should (search-forward "foo():"))
-      (should (re-search-forward "call[[:space:]]+bar()")))))
-
-(ert-deftest binfile-sets-local-variables ()
-  (binfile-test
-      "
-int foo(int x) { return x + 1; }
-"
-      "file.o" "gcc" '("-c")
-    (make-directory "subdir_1")
-    (make-directory "subdir_2")
-    (copy-file "file.o" "subdir_1/file.o")
-    (copy-file "file.o" "subdir_2/file.o")
-
-    (with-temp-file "subdir_1/.dir-locals.el"
-      (print '((nil . ((foo-var . var-for-subdir-1)))) (current-buffer)))
-    (with-temp-file "subdir_2/.dir-locals.el"
-      (print '((nil . ((foo-var . var-for-subdir-2)))) (current-buffer)))
-    (with-temp-file ".dir-locals.el"
-      (print '((nil . ((foo-var . var-for-top-level)))) (current-buffer)))
-
-    (put 'foo-var 'safe-local-variable #'symbolp)
-
-    (binfile-disassemble "foo" "file.o")
-    (with-current-buffer binfile-disassembly-buffer
-      (should (boundp 'foo-var))
-      (should (eq (symbol-value 'foo-var) 'var-for-top-level)))
-    (binfile-disassemble "foo" "subdir_1/file.o")
-    (with-current-buffer binfile-disassembly-buffer
-      (should (boundp 'foo-var))
-      (should (eq (symbol-value 'foo-var) 'var-for-subdir-1)))
-    (binfile-disassemble "foo" "subdir_2/file.o")
-    (with-current-buffer binfile-disassembly-buffer
-      (should (boundp 'foo-var))
-      (should (eq (symbol-value 'foo-var) 'var-for-subdir-2)))))
+      (should (search-forward "_Z3foov:"))
+      (should (re-search-forward "^	call[[:space:]]+_Z3barv")))))
 
 (ert-deftest binfile-postprocess-relocations ()
   (with-temp-buffer
@@ -330,15 +301,16 @@ int foo(int x) { return x + 1; }
 ")
     (goto-char (point-min))
     (binfile-postprocess-unused-symbolic-local-references (point-min) (point-max) "func")
+    (delete-trailing-whitespace)
 
     (should (string= (buffer-string)
                      "
 0000000000000000 <func>:
    0:	endbr64
    4:	test   edi,edi
-   6:	jle    20 
+   6:	jle    20
    8:	test   esi,esi
-   a:	jns    18 
+   a:	jns    18
    c:	mov    eax,0x1
   11:	ret
   12:	nop    WORD PTR [rax+rax*1+0x0]
@@ -346,7 +318,7 @@ int foo(int x) { return x + 1; }
   1d:	ret
   1e:	xchg   ax,ax
   20:	test   esi,esi
-  22:	js     30 
+  22:	js     30
   24:	mov    eax,0x4
   29:	ret
   2a:	nop    WORD PTR [rax+rax*1+0x0]
