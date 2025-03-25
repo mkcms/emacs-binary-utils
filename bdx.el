@@ -278,73 +278,50 @@ This should be used as COLLECTION for `ivy-read'."
             (lambda (err-string) (setq bdx--last-error err-string))))))))
 
 (defun bdx-complete ()
-  "Complete the string before point using bdx complete-prefix command.
+  "Complete the string before point using bdx complete-query command.
 E.g. when the string before point is \"section:.b\" it will allow
 selecting all possible completions for section that start with
 \".b\"."
   (interactive)
-  (let (field prefix command completion
-              (known-fields
-               '("path" "source" "name" "demangled" "fullname"
-                 "section" "address" "size"
-                 "type" "relocations" "mtime"))
-              candidates common-prefix)
-    (cond
-     ((looking-back "\\(\\b[a-z]+\\):\\([^ \n]*\\)" nil)
-      (setq field (match-string-no-properties 1)
-            prefix (match-string-no-properties 2)))
-     ((looking-back "\\([^ \n]+\\)" (line-beginning-position) t)
-      (setq prefix (match-string-no-properties 1)))
-     (t (setq prefix "")))
-
+  (let* ((pt (point))
+         (line
+          (buffer-substring-no-properties (line-beginning-position) pt))
+         common-prefix
+         (start-of-sexp (save-excursion
+                          (condition-case nil
+                              (progn (backward-sexp) (point))
+                            (error (line-beginning-position)))))
+         (chars-to-remove (- start-of-sexp (line-beginning-position)))
+         command completion candidates)
     (save-match-data
-      (setq command (bdx--command "complete-prefix" (or field "name") prefix))
+      (setq command (bdx--command "complete-query" line))
       (setq candidates
-            (with-temp-buffer
-              (apply #'call-process (car command) nil
-                     (list (current-buffer) nil) nil
-                     (cdr command))
-
-              ;; If we don't have a field name, then also collect candidates
-              ;; for "demangled"
-              (unless field
-                (setq command
-                      (bdx--command "complete-prefix" "demangled" prefix))
-                (apply #'call-process (car command) nil
-                       (list (current-buffer) nil) nil
-                       (cdr command)))
-
-              ;; Also complete the field name, if it's not
-              ;; provided
-              (unless field
-                (dolist (known-field known-fields)
-                  (when (string-prefix-p prefix known-field)
-                    (insert known-field ":\n"))))
-
-              (split-string (buffer-string) "[\n\r]")))
+            (mapcar (lambda (cand)
+                      (if (>= (length cand) chars-to-remove)
+                          (substring cand chars-to-remove)
+                        cand))
+                    (with-temp-buffer
+                      (apply #'call-process (car command) nil
+                             (list (current-buffer) nil) nil
+                             (cdr command))
+                      (split-string (buffer-string) "[\n\r]"))))
       (cond
-       ((null candidates) (error "No completions for %S" prefix))
+       ((or (null candidates)
+            (and (null (cdr candidates))
+                 (string-empty-p (car candidates))))
+        (error "No completions for %S" line))
        ((null (cdr candidates)) (setq completion (car candidates)))
-       ((and (setq common-prefix (try-completion prefix candidates))
-             (not (string= common-prefix prefix)))
+       ((and (setq common-prefix (try-completion line candidates))
+             (not (eq t common-prefix))
+             (not (string= common-prefix line)))
         (setq completion common-prefix))
        (t
         (setq completion
-              (completing-read (format "Completion for \"%s\": "
-                                       (if field
-                                           (format "%s:%s" field prefix)
-                                         prefix))
-                               candidates nil nil prefix)))))
-
-    (when (seq-contains-p completion ?\ )
-      ;; Add string quotes if the completion contains spaces
-      (setq completion (format "%S" completion)))
+              (completing-read "Completion: " candidates)))))
 
     (let ((inhibit-read-only t))
-      (replace-match
-       (if field
-           (format "%s:%s" field completion)
-         completion)))))
+      (delete-region start-of-sexp pt)
+      (insert completion))))
 
 (defvar bdx-search-keymap
   (let ((map (make-sparse-keymap)))
