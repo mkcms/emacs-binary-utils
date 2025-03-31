@@ -1,6 +1,6 @@
 ;;; asm2src.el --- ASM to source file overlays     -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2022-2024  Michał Krzywkowski
+;; Copyright (C) 2022-2025  Michał Krzywkowski
 
 ;; Author: Michał Krzywkowski <k.michal@zoho.com>
 ;; Keywords: languages, tools

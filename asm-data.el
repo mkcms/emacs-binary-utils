@@ -1,6 +1,6 @@
 ;;; asm-data.el --- Convert data representations in ASM buffers  -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2022-2024  Michał Krzywkowski
+;; Copyright (C) 2022-2025  Michał Krzywkowski
 
 ;; Author: Michał Krzywkowski <k.michal@zoho.com>
 ;; Keywords: languages, tools

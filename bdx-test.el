@@ -1,6 +1,6 @@
 ;;; bdx-test.el --- Tests for bdx.el     -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2024  Michał Krzywkowski
+;; Copyright (C) 2024-2025  Michał Krzywkowski
 
 ;; Author: Michał Krzywkowski <k.michal@zoho.com>
 ;; Keywords: tests

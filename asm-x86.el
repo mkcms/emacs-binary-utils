@@ -1,6 +1,6 @@
 ;;; asm-x86.el --- X86 utilities     -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2022-2024  Michał Krzywkowski
+;; Copyright (C) 2022-2025  Michał Krzywkowski
 
 ;; Author: Michał Krzywkowski <k.michal@zoho.com>
 ;; Keywords: languages, tools
