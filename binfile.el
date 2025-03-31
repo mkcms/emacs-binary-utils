@@ -256,7 +256,7 @@ When this function is called, the buffer is narrowed to the region bounds.")
 It must either return nil to stop processing the buffer, or a
 list of 3 elements (BEG END NAME), where BEG and END are the
 buffer positions where the region starts/ends, and NAME is the
-name of the function/section/object/etc. in that region.")
+name of the function/section/object in that region.")
 
 (defun binfile-file-format-function-objdump ()
   "Find file format from objdump output.
