@@ -28,13 +28,13 @@
 
 (defmacro binfile-test (source to-file program options &rest body)
   (declare (indent 4) (debug (form form form form body)))
-  (let ((out-filename (cl-gensym))
-        (src-filename (cl-gensym))
-        (opts (cl-gensym))
-        (gcc-rv (cl-gensym))
-        (prog (cl-gensym))
-        (src (cl-gensym))
-        (dir (cl-gensym)))
+  (let ((out-filename (gensym))
+        (src-filename (gensym))
+        (opts (gensym))
+        (gcc-rv (gensym))
+        (prog (gensym))
+        (src (gensym))
+        (dir (gensym)))
     `(with-temp-buffer
        (let* ((,src ,source)
               (,out-filename ,to-file)
@@ -66,9 +66,9 @@
 
 (defmacro binfile-test-with-disassembly (program options &rest body)
   (declare (indent 2) (debug (form form body)))
-  (let ((opts (cl-gensym))
-        (rv (cl-gensym))
-        (prog (cl-gensym)))
+  (let ((opts (gensym))
+        (rv (gensym))
+        (prog (gensym)))
     `(with-temp-buffer
        (let* ((,prog ,program)
               (,opts ,options)

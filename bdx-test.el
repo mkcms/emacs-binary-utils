@@ -49,7 +49,7 @@
 
 (defmacro bdx-test--with-files (files &rest body)
   (declare (indent 1) (debug (form body)))
-  (let ((dir (cl-gensym)))
+  (let ((dir (gensym)))
     `(let* ((,dir (make-temp-file "emacs-bdx-test--with-files" t))
             (bdx-index-path (expand-file-name "index" ,dir))
             (default-directory ,dir))

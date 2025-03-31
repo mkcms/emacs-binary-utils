@@ -97,7 +97,7 @@
                          `(
                            asm2src-file ,file
                            asm2src-line ,line
-                           asm2src-id   ,(cl-gensym)
+                           asm2src-id   ,(gensym)
                            ))))
 
 (defun asm2src-process-buffer ()
