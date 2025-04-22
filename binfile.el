@@ -35,8 +35,17 @@
 ;;; Code:
 
 (require 'cl-lib)
-(require 'map)
 (require 'rx)
+
+;; `require'-ing `map' does not guarantee it is loaded as it is preloaded
+;; in Emacs.
+;;
+;; This hack was stolen from the built-in eglot.el.
+(eval-and-compile
+  (if (< emacs-major-version 28)
+      (progn
+        (load "map" nil 'nomessage))
+    (require 'map)))
 
 (defgroup binfile nil "Prettify disassembly."
   :group 'languages
@@ -50,6 +59,7 @@
     binfile-postprocess-boring-comments
     binfile-postprocess-numeric-to-symbolic-references
     binfile-postprocess-unused-symbolic-local-references
+    binfile-postprocess-add-relocation-buttons
     )
   "List of functions that postprocess ASM regions.
 Each function is called with three arguments (BEG END NAME),
@@ -212,15 +222,6 @@ The groups are:
   "Remove boring comments."
   (while (re-search-forward "# +[0-9a-f]+ *$" nil t) (replace-match "")))
 
-(defun binfile-postprocess-unused-symbolic-local-references
-    (_beg _end function-name)
-  "Remove useless symbolic references with offsets to FUNCTION-NAME.
-E.g. this removes all instances of '<foo()+0x123af>'."
-  (while (re-search-forward
-          (format "<%s[+-]0x[0-9a-f]+>" (regexp-quote function-name))
-          nil t)
-    (replace-match "")))
-
 (defvar binfile--symbolic-reference-regexp
   (rx
    space
@@ -237,6 +238,51 @@ Group 1 is the symbol.")
   "Convert references with address and symbol to just symbol."
   (while (re-search-forward binfile--symbolic-reference-regexp nil t)
     (replace-match " \\1")))
+
+(defun binfile-postprocess-unused-symbolic-local-references
+    (_beg _end function-name)
+  "Remove useless symbolic references with offsets to FUNCTION-NAME.
+E.g. this removes all instances of '<foo()+0x123af>'."
+  (while (re-search-forward
+          (format "<%s[+-]0x[0-9a-f]+>" (regexp-quote function-name))
+          nil t)
+    (replace-match "")))
+
+(define-button-type 'binfile-reloc
+  'action #'binfile-reloc-button-action
+  'keymap (let ((map (make-sparse-keymap)))
+            (define-key map [mouse-1] #'push-button)
+            (define-key map (kbd "RET") #'push-button)
+            map)
+  'mouse-face 'highlight
+  'help-echo "mouse-1, RET: disassemble relocation")
+
+(defvar binfile-reloc-button-action #'ignore
+  "Function to call when clicking on a relocation button.
+It is called with one argument, the relocation's name.")
+
+(defun binfile-reloc-button-action (button)
+  "Act on relocation BUTTON after clicking on it."
+  (funcall binfile-reloc-button-action
+           (overlay-get button 'binfile-reloc-name)))
+
+(defun binfile-postprocess-add-relocation-buttons (_beg _end _name)
+  "Replace relocations with buttons which will disassemble the relocated sym."
+  (let (pos)
+    (while (setq pos (next-single-property-change (point) 'binfile-reloc))
+      (goto-char pos)
+      (unless (get-text-property (point) 'binfile-reloc)
+        (forward-char -1))
+      (pcase-let (((map :name) (get-text-property (point) 'binfile-reloc)))
+        (save-restriction
+          (narrow-to-region (line-beginning-position) (line-end-position))
+          (goto-char (line-beginning-position))
+          (when-let* ((end (and name (re-search-forward (regexp-quote name)))))
+            (make-button (match-beginning 0) (match-end 0)
+                         'type 'binfile-reloc
+                         'binfile-reloc-name name)))
+        name)
+      (forward-line 1))))
 
 
 ;; Disassembly

@@ -509,16 +509,19 @@ symbol."
   (interactive (list (bdx-query "Disassemble symbol: "
                                 :require-match t)))
   (with-current-buffer (get-buffer-create bdx-disassembly-buffer)
-    (pcase-let (((map :name :path :section) symbol-plist))
+    (pcase-let (((map :name :demangled :path :section) symbol-plist))
       (let ((command
              (apply #'bdx--command "disass"
                     (append (and bdx-disassembler (list "-D" bdx-disassembler))
                             (and bdx-disassembler-options
                                  (list "-M" bdx-disassembler-options))
                             (list
-                             (format "name:\"%s\"" name)
-                             (format "path:\"%s\"" path)
-                             (format "section:\"%s\"" section)))))
+                             (and name (format "name:\"%s\"" name))
+                             (and demangled
+                                  (format "demangled:\"%s\"" demangled))
+                             (and path (format "path:\"%s\"" path))
+                             (and section
+                                  (format "section:\"%s\"" section))))))
             (inhibit-read-only t))
         (erase-buffer)
 
@@ -531,6 +534,16 @@ symbol."
 
         (setq buffer-read-only t)
         (setq buffer-undo-list t)))))
+
+(defun bdx-disassemble-name (name)
+  "Disassemble the symbol named NAME.
+This is just a wrapper for `bdx-disassemble'."
+  (bdx-disassemble `(:name ,name)))
+
+(defun bdx-disassemble-demangled-name (name)
+  "Disassemble the symbol whose demangled name is NAME.
+This is just a wrapper for `bdx-disassemble'."
+  (bdx-disassemble `(:demangled ,name)))
 
 
 ;; Graphs
