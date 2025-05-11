@@ -569,6 +569,13 @@ This is just a wrapper for `bdx-disassemble'."
 This is just a wrapper for `bdx-disassemble'."
   (bdx-disassemble `(:demangled ,name)))
 
+(defun bdx-disassemble-mangled-or-demangled-name (name)
+  "Disassemble NAME, which can be either a mangled or demangled name."
+  (let ((item (car (bdx--search (format "demangled:\"%s\"" name) :limit 1))))
+    (if (and item (string= (plist-get item :demangled) name))
+        (bdx-disassemble-demangled-name name)
+      (bdx-disassemble-name name))))
+
 
 ;; Graphs
 
