@@ -177,7 +177,8 @@ The ARGS list is filtered out to keep only non-nil values."
 (cl-defun bdx--search-async (query &key
                                    (callback #'ignore)
                                    (done-callback #'ignore)
-                                   (error-callback #'ignore))
+                                   (error-callback #'ignore)
+                                   (limit nil))
   "Start and return a search process, searching for QUERY.
 CALLBACK will be called for a batch of symbols found.  It must
 accept a single argument, which will be the batch, a list of
@@ -185,6 +186,7 @@ symbols serialized as plists.
 
 DONE-CALLBACK will be called once the process exits.
 ERROR-CALLBACK will be called with an error string on errors.
+LIMIT says how many results to return.
 
 The return value is a process object for the search."
   (setq bdx--callback callback)
@@ -197,9 +199,31 @@ The return value is a process object for the search."
    :name "bdx-search"
    :buffer (generate-new-buffer "bdx-search")
    :stderr bdx-stderr-buffer
-   :command (bdx--command "search" "-f" "sexp" "--" query)
+   :command (apply #'bdx--command
+                   (flatten-list
+                    `("search" "-f" "sexp"
+                      ,(and limit (list "-n" (number-to-string limit)))
+                      "--" ,query)))
    :filter #'bdx--process-filter
    :sentinel #'bdx--process-sentinel))
+
+(cl-defun bdx--search (query &key
+                             (limit nil))
+  "Search for QUERY, returning results as a list.
+LIMIT says how how many results to return."
+  (let (process results)
+    (unwind-protect
+        (progn
+          (setq process (bdx--search-async
+                         query
+                         :limit limit
+                         :callback (lambda (syms)
+                                     (setq results (append results syms)))))
+          (while (process-live-p process)
+            (accept-process-output process 0.1)))
+      (when (process-live-p process)
+        (interrupt-process process)))
+    results))
 
 (defun bdx-data (string)
   "Get the symbol plist from STRING.
