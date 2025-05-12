@@ -526,12 +526,19 @@ the default objdump invocation.")
 (defvar bdx-disassembly-hook nil
   "Hook called at the end of `bdx-disassemble'.")
 
+(defvar bdx-disassembly-current-symbol nil "Currently disassembled symbol.")
+(defvar bdx-disassembly-stack nil "Stack of previously disassembled symbols.")
+(defvar bdx-disassembly-forward-stack nil
+  "Stack of disassembled symbols for going forward.")
+
 (defun bdx-disassemble (symbol-plist)
   "Disassemble the symbol encoded in SYMBOL-PLIST.
 Interactively, prompts for a query and allows selecting a single
 symbol."
   (interactive (list (bdx-query "Disassemble symbol: "
                                 :require-match t)))
+  (when bdx-disassembly-current-symbol
+    (push bdx-disassembly-current-symbol bdx-disassembly-stack))
   (with-current-buffer (get-buffer-create bdx-disassembly-buffer)
     (pcase-let (((map :name :demangled :path :section) symbol-plist))
       (let ((command
@@ -557,7 +564,10 @@ symbol."
         (run-hooks 'bdx-disassembly-hook)
 
         (setq buffer-read-only t)
-        (setq buffer-undo-list t)))))
+        (setq buffer-undo-list t)
+
+        (bdx-disassembly-mode +1))))
+  (setq bdx-disassembly-current-symbol symbol-plist))
 
 (defun bdx-disassemble-name (name)
   "Disassemble the symbol named NAME.
@@ -575,6 +585,48 @@ This is just a wrapper for `bdx-disassemble'."
     (if (and item (string= (plist-get item :demangled) name))
         (bdx-disassemble-demangled-name name)
       (bdx-disassemble-name name))))
+
+(defun bdx--disassemble-from-history-var (forward)
+  "Disassemble the previously disassembled sym, or the next one if FORWARD."
+  (let ((stack (if forward 'bdx-disassembly-forward-stack
+                 'bdx-disassembly-stack))
+        (reverse-stack (if forward 'bdx-disassembly-stack
+                         'bdx-disassembly-forward-stack)))
+    (when bdx-disassembly-current-symbol
+      (push bdx-disassembly-current-symbol (symbol-value reverse-stack)))
+    (let ((item (pop (symbol-value stack)))
+          (total-count (+ 1 (length bdx-disassembly-stack)
+                          (length bdx-disassembly-forward-stack)))
+          (pos (1+ (length bdx-disassembly-stack)))
+          bdx-disassembly-stack)
+      (bdx-disassemble item)
+      (message "History item %s/%s" pos total-count))))
+
+(defun bdx-disassemble-previous ()
+  "Go back to the previous symbol's disassembly."
+  (interactive)
+  (unless bdx-disassembly-stack
+    (error "The previous item stack is empty"))
+  (bdx--disassemble-from-history-var nil))
+
+(defun bdx-disassemble-next ()
+  "Go forward to the next symbol's disassembly."
+  (interactive)
+  (unless bdx-disassembly-forward-stack
+    (error "The forward item stack is empty"))
+  (bdx--disassemble-from-history-var t))
+
+(defvar bdx-disassembly-mode-map
+  (let ((map (make-keymap)))
+    (define-key map (kbd "C-c M-p") #'bdx-disassemble-previous)
+    (define-key map (kbd "C-c M-n") #'bdx-disassemble-next)
+    map)
+  "Keymap used in `bdx-disassembly-mode'.")
+
+(define-minor-mode bdx-disassembly-mode
+  "Minor mode used in disassembly buffers."
+  :lighter " bdx"
+  :keymap bdx-disassembly-mode-map)
 
 
 ;; Graphs
