@@ -524,6 +524,9 @@ This will error if `bdx-demangle-names' is nil."
 If `bdx-disassembler' is nil, then these options are appended to
 the default objdump invocation.")
 
+(defvar bdx-disassembly-results-limit 10
+  "If non-nil, then only disassemble at most that many symbols in one buffer.")
+
 (defvar bdx-disassembly-hook nil
   "Hook called at the end of `bdx-disassemble'.")
 
@@ -547,6 +550,9 @@ symbol."
                     (append (and bdx-disassembler (list "-D" bdx-disassembler))
                             (and bdx-disassembler-options
                                  (list "-M" bdx-disassembler-options))
+                            (and bdx-disassembly-results-limit
+                                 (list "-n" (number-to-string
+                                             bdx-disassembly-results-limit)))
                             (list
                              (and name (format "name:\"%s\"" name))
                              (and demangled
