@@ -122,6 +122,7 @@ The ARGS list is filtered out to keep only non-nil values."
              ,@(and bdx-binary-directory (list "-d" bdx-binary-directory))
              ,@(and bdx-index-path (list "--index-path" bdx-index-path))
              ,@(delq nil args))))
+      (setq cmd (mapcar #'substring-no-properties cmd))
       (with-current-buffer (get-buffer-create bdx-stderr-buffer)
         (let ((inhibit-read-only t))
           (princ (format "Command: %S\n" cmd) (current-buffer))))
