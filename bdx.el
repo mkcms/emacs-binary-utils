@@ -65,14 +65,17 @@
 (require 'ivy)
 (require 'json)
 
-;; `require'-ing `map' does not guarantee it loaded as it is preloaded in
+;; `require'-ing these does not guarantee they loaded as they are preloaded in
 ;; Emacs.
 ;;
 ;; This hack was stolen from the built-in eglot.el.
 (eval-and-compile
   (if (< emacs-major-version 28)
-      (load "map" nil 'nomessage)
-    (require 'map)))
+      (progn
+        (load "map" nil 'nomessage)
+        (load "project" nil 'nomessage))
+    (require 'map)
+    (require 'project)))
 
 (defgroup bdx nil "Frontend for bdx tool."
   :group 'tools)
@@ -514,7 +517,8 @@ This will error if `bdx-demangle-names' is nil."
 
 ;; Disassembly
 
-(defconst bdx-disassembly-buffer "*bdx disassembly*")
+(defvar bdx-disassembly-buffer "*bdx disassembly %s*"
+  "String template for the disassembly buffer name.")
 
 (defvar bdx-disassembler nil
   "Command to use as -D option to \\='bdx disass\\='.")
@@ -530,10 +534,34 @@ the default objdump invocation.")
 (defvar bdx-disassembly-hook nil
   "Hook called at the end of `bdx-disassemble'.")
 
-(defvar bdx-disassembly-current-symbol nil "Currently disassembled symbol.")
-(defvar bdx-disassembly-stack nil "Stack of previously disassembled symbols.")
-(defvar bdx-disassembly-forward-stack nil
+(defvar-local bdx-disassembly-current-symbol
+    nil "Currently disassembled symbol.")
+(defvar-local bdx-disassembly-stack nil
+  "Stack of previously disassembled symbols.")
+(defvar-local bdx-disassembly-forward-stack nil
   "Stack of disassembled symbols for going forward.")
+
+(defun bdx--disassembly-buffer ()
+  "Get the name for the disassembly buffer."
+  (let* ((name
+          (or (and bdx-index-path
+                   (format "index:%s" (abbreviate-file-name bdx-index-path)))
+              (and bdx-binary-directory
+                   (format "dir:%s"
+                           (abbreviate-file-name bdx-binary-directory)))
+              (and (project-current)
+                   (format "project:%s"
+                           (project-name (project-current))))
+              (abbreviate-file-name default-directory)
+              "<global>"))
+         (buffer-name (format bdx-disassembly-buffer name))
+         (buffer (get-buffer buffer-name)))
+    (unless buffer
+      (setq buffer (generate-new-buffer buffer-name))
+      (with-current-buffer buffer
+        (asm-mode)
+        (bdx-disassembly-mode +1)))
+    buffer))
 
 (defun bdx-disassemble (symbol-plist)
   "Disassemble the symbol encoded in SYMBOL-PLIST.
@@ -541,9 +569,7 @@ Interactively, prompts for a query and allows selecting a single
 symbol."
   (interactive (list (bdx-query "Disassemble symbol: "
                                 :require-match t)))
-  (when bdx-disassembly-current-symbol
-    (push bdx-disassembly-current-symbol bdx-disassembly-stack))
-  (with-current-buffer (get-buffer-create bdx-disassembly-buffer)
+  (with-current-buffer (bdx--disassembly-buffer)
     (pcase-let (((map :name :demangled :path :section) symbol-plist))
       (let ((command
              (apply #'bdx--command "disass"
@@ -567,14 +593,13 @@ symbol."
         (apply #'call-process (car command)
                nil (current-buffer) t (cdr command))
 
-        (asm-mode)
         (run-hooks 'bdx-disassembly-hook)
 
         (setq buffer-read-only t)
-        (setq buffer-undo-list t)
-
-        (bdx-disassembly-mode +1))))
-  (setq bdx-disassembly-current-symbol symbol-plist))
+        (setq buffer-undo-list t)))
+    (when bdx-disassembly-current-symbol
+      (push bdx-disassembly-current-symbol bdx-disassembly-stack))
+    (setq bdx-disassembly-current-symbol symbol-plist)))
 
 (defun bdx-disassemble-name (name)
   "Disassemble the symbol named NAME.

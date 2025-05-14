@@ -23,7 +23,7 @@ PACKAGE_INIT := -f package-initialize
 INSTALL_DEPENDENCIES := ${PACKAGE_INIT} --eval '(progn                        \
 	(load "seq" nil t)                                                    \
 	(load "project" nil t)                                                \
-	(unless (and (fboundp `seq-contains-p) (fboundp `project-root))       \
+	(unless (and (fboundp `seq-contains-p) (fboundp `project-name))       \
 	  (package-refresh-contents)                                          \
 	  (package-install (cadr (assoc `project package-archive-contents)))  \
 	  (package-install (cadr (assoc `map package-archive-contents)))      \
