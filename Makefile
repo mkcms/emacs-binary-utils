@@ -14,6 +14,7 @@ FILES :=                        \
         binfile.el              \
         compdb.el               \
         compiled-file.el        \
+        untemplatize-cxx.el     \
 
 ELC := $(FILES:.el=.elc)
 
@@ -61,6 +62,7 @@ lint:
 	  binfile.el                                                          \
 	  compdb.el                                                           \
 	  compiled-file.el                                                    \
+	  untemplatize-cxx.el                                                 \
 	);                                                                    \
 	for f in $${files[@]}; do                                             \
 	    lint=$$(mktemp)                                                   \

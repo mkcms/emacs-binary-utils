@@ -8,6 +8,7 @@ files:
 - [`asm-data.el`](#asm-datael---conversion-between-data-representations-in-asm-buffers)
 - [`asm-jump.el`](#asm-jumpel---buttons-for-jumps-in-asm-mode)
 - [`asm2src.el`](#asm2srcel---asm-to-source-file-overlays)
+- [`untemplatize-cxx.el`](#untemplatize-cxxel---make-c-templates-readable)
 - [`compiled-file.el`](#compiled-fileel---getset-the-compiled-file-for-current-source-file)
 - [`compdb.el`](#compdbel---work-with-compilation-databases)
 
@@ -140,6 +141,48 @@ previous mapped location, `n` goes to the next.
 will go to the first ASM buffer containing the source line.
 
 `asm2src-add-mapping` can be used to add a custom ASM<->source directory mapping.
+
+## `untemplatize-cxx.el` - Make C++ templates readable ##
+
+This package provides a function, `untemplatize-cxx-buffer` which makes the
+buffer show templated C++ symbols in a more readable way:
+
+    std::_Hashtable<int, std::pair<int const, char const*>,
+      std::pmr::polymorphic_allocator<std::pair<int const, char const*>>,
+      std::__detail::_Select1st, std::equal_to<int>, std::hash<int>,
+      std::__detail::_Mod_range_hashing, std::__detail::_Default_ranged_hash,
+        std::__detail::_Prime_rehash_policy,
+        std::__detail::_Hashtable_traits<false, false, true>
+      >::_M_rehash(unsigned long, std::integral_constant<bool, true>)
+
+Gets turned into:
+
+    std::_Hashtable<...>::_M_rehash(unsigned long, std::integral_constant<...>)
+
+The package uses overlays to achieve this; the buffer contents are never
+modified.
+
+After the buffer is processed, these commands can be used:
+
+- `untemplatize-cxx-show`
+
+  Show one level of contents.  In the above example, when point is at the last
+  "...", it will show the symbol as:
+
+      _M_rehash_aux(unsigned long, std::integral_constant<bool, true>)
+
+  This command only works when point is at an overlay shown as "...".
+
+- `untemplatize-cxx-hide`
+
+  Hide the overlay at point, if there is one.  This only makes sense after
+  calling `untemplatize-cxx-show` at point.
+
+- `untemplatize-cxx-dwim`
+
+  If the overlay at point is showing as "..." then expand it, otherwise, try to
+  hide the overlay at point.
+
 
 ## `compiled-file.el` - Get/set the compiled file for current source file ##
 
