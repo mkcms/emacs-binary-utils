@@ -599,7 +599,7 @@ symbol."
 
         (pop-to-buffer (current-buffer))
         (apply #'call-process (car command)
-               nil (current-buffer) t (cdr command))
+               nil (current-buffer) nil (cdr command))
 
         (run-hooks 'bdx-disassembly-hook)
 
