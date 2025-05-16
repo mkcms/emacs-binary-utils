@@ -537,9 +537,13 @@ the default objdump invocation.")
 (defvar-local bdx-disassembly-current-symbol
     nil "Currently disassembled symbol.")
 (defvar-local bdx-disassembly-stack nil
-  "Stack of previously disassembled symbols.")
+  "Stack of previously disassembled symbols.
+Each item is a list (SYMBOL-PLIST POINT WINDOW-START), where POINT is
+the point in the disassembly buffer and WINDOW-START is the value of
+`window-start', and it's used to restore the window position.")
 (defvar-local bdx-disassembly-forward-stack nil
-  "Stack of disassembled symbols for going forward.")
+  "Stack of disassembled symbols for going forward.
+Each element is as in `bdx-disassembly-stack'.")
 
 (defun bdx--disassembly-buffer ()
   "Get the name for the disassembly buffer."
@@ -586,6 +590,10 @@ symbol."
                              (and path (format "path:\"%s\"" path))
                              (and section
                                   (format "section:\"%s\"" section))))))
+            (current-state
+             (and bdx-disassembly-current-symbol
+                  (list bdx-disassembly-current-symbol
+                        (point) (window-start))))
             (inhibit-read-only t))
         (erase-buffer)
 
@@ -596,10 +604,10 @@ symbol."
         (run-hooks 'bdx-disassembly-hook)
 
         (setq buffer-read-only t)
-        (setq buffer-undo-list t)))
-    (when bdx-disassembly-current-symbol
-      (push bdx-disassembly-current-symbol bdx-disassembly-stack))
-    (setq bdx-disassembly-current-symbol symbol-plist)))
+        (setq buffer-undo-list t)
+
+        (when current-state (push current-state bdx-disassembly-stack))
+        (setq bdx-disassembly-current-symbol symbol-plist)))))
 
 (defun bdx-disassemble-name (name)
   "Disassemble the symbol named NAME.
@@ -625,13 +633,17 @@ This is just a wrapper for `bdx-disassemble'."
         (reverse-stack (if forward 'bdx-disassembly-stack
                          'bdx-disassembly-forward-stack)))
     (when bdx-disassembly-current-symbol
-      (push bdx-disassembly-current-symbol (symbol-value reverse-stack)))
-    (let ((item (pop (symbol-value stack)))
-          (total-count (+ 1 (length bdx-disassembly-stack)
-                          (length bdx-disassembly-forward-stack)))
-          (pos (1+ (length bdx-disassembly-stack)))
-          bdx-disassembly-stack)
+      (push (list bdx-disassembly-current-symbol (point) (window-start))
+            (symbol-value reverse-stack)))
+    (pcase-let
+        ((`(,item ,point ,window-start) (pop (symbol-value stack)))
+         (total-count (+ 1 (length bdx-disassembly-stack)
+                         (length bdx-disassembly-forward-stack)))
+         (pos (1+ (length bdx-disassembly-stack)))
+         (bdx-disassembly-stack nil))
       (bdx-disassemble item)
+      (ignore-errors (goto-char point))
+      (ignore-errors (set-window-start (selected-window) window-start))
       (message "History item %s/%s" pos total-count))))
 
 (defun bdx-disassemble-previous ()
