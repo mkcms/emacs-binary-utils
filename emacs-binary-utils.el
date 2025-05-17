@@ -32,6 +32,7 @@
 (require 'binfile)
 (require 'compdb)
 (require 'compiled-file)
+(require 'untemplatize-cxx)
 
 (provide 'emacs-binary-utils)
 ;;; emacs-binary-utils.el ends here
