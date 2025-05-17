@@ -369,6 +369,14 @@ HISTORY can be a history variable.
 
 REQUIRE-MATCH if non-nil will disallow exiting without selecting
 a symbol."
+  ;; Exit early if index does not exist
+  (with-temp-buffer
+    (let* ((command (bdx--command "search" "--check-index-exists"))
+           (res (apply #'call-process (car command) nil (current-buffer) nil
+                       (cdr command))))
+      (unless (= 0 res)
+        (error (buffer-string)))))
+
   (setq bdx--demangle-names nil)
   (setq bdx--query-buffer (current-buffer))
   (setq bdx--last-error nil)
