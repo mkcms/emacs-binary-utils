@@ -584,7 +584,7 @@ symbol."
                                  (list "-n" (number-to-string
                                              bdx-disassembly-results-limit)))
                             (list
-                             (and name (format "name:\"%s\"" name))
+                             (and name (format "fullname:\"%s\"" name))
                              (and demangled
                                   (format "demangled:\"%s\"" demangled))
                              (and path (format "path:\"%s\"" path))
