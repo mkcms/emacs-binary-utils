@@ -13,7 +13,6 @@ FILES :=                        \
         binfile-test.el         \
         binfile.el              \
         compdb.el               \
-        compiled-file.el        \
         untemplatize-cxx.el     \
 
 ELC := $(FILES:.el=.elc)
@@ -61,7 +60,6 @@ lint:
 	  bdx.el                                                              \
 	  binfile.el                                                          \
 	  compdb.el                                                           \
-	  compiled-file.el                                                    \
 	  untemplatize-cxx.el                                                 \
 	);                                                                    \
 	for f in $${files[@]}; do                                             \

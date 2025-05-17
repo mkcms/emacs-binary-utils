@@ -31,7 +31,6 @@
 (require 'bdx)
 (require 'binfile)
 (require 'compdb)
-(require 'compiled-file)
 (require 'untemplatize-cxx)
 
 (provide 'emacs-binary-utils)

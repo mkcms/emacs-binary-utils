@@ -9,7 +9,6 @@ files:
 - [`asm-jump.el`](#asm-jumpel---buttons-for-jumps-in-asm-mode)
 - [`asm2src.el`](#asm2srcel---asm-to-source-file-overlays)
 - [`untemplatize-cxx.el`](#untemplatize-cxxel---make-c-templates-readable)
-- [`compiled-file.el`](#compiled-fileel---getset-the-compiled-file-for-current-source-file)
 - [`compdb.el`](#compdbel---work-with-compilation-databases)
 
 ## `binfile.el` - Prettify disassembly ##
@@ -182,19 +181,6 @@ After the buffer is processed, these commands can be used:
 
   If the overlay at point is showing as "..." then expand it, otherwise, try to
   hide the overlay at point.
-
-
-## `compiled-file.el` - Get/set the compiled file for current source file ##
-
-This helper package defines a variable `compiled-file` which can be
-set to the path to the object file for current source file.
-
-It can also automatically find an object file if the variable
-`compiled-file-directory` is set to the build directory.
-
-Having the path to a binary file of the current source is used by some
-other packages to automatically switch from source to disassembly and
-vice-versa.
 
 ## `compdb.el` - Work with compilation databases ##
 
