@@ -615,7 +615,10 @@ symbol."
         (setq buffer-undo-list t)
 
         (when current-state (push current-state bdx-disassembly-stack))
-        (setq bdx-disassembly-current-symbol symbol-plist)))))
+        (setq bdx-disassembly-current-symbol symbol-plist)
+
+        (when (equal symbol-plist (caar bdx-disassembly-forward-stack))
+          (pop bdx-disassembly-forward-stack))))))
 
 (defun bdx-disassemble-name (name)
   "Disassemble the symbol named NAME.
