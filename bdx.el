@@ -555,25 +555,27 @@ Each element is as in `bdx-disassembly-stack'.")
 
 (defun bdx--disassembly-buffer ()
   "Get the name for the disassembly buffer."
-  (let* ((name
-          (or (and bdx-index-path
-                   (format "index:%s" (abbreviate-file-name bdx-index-path)))
-              (and bdx-binary-directory
-                   (format "dir:%s"
-                           (abbreviate-file-name bdx-binary-directory)))
-              (and (project-current)
-                   (format "project:%s"
-                           (project-name (project-current))))
-              (abbreviate-file-name default-directory)
-              "<global>"))
-         (buffer-name (format bdx-disassembly-buffer name))
-         (buffer (get-buffer buffer-name)))
-    (unless buffer
-      (setq buffer (generate-new-buffer buffer-name))
-      (with-current-buffer buffer
-        (asm-mode)
-        (bdx-disassembly-mode +1)))
-    buffer))
+  (if bdx-disassembly-mode
+      (current-buffer)
+    (let* ((name
+            (or (and bdx-index-path
+                     (format "index:%s" (abbreviate-file-name bdx-index-path)))
+                (and bdx-binary-directory
+                     (format "dir:%s"
+                             (abbreviate-file-name bdx-binary-directory)))
+                (and (project-current)
+                     (format "project:%s"
+                             (project-name (project-current))))
+                (abbreviate-file-name default-directory)
+                "<global>"))
+           (buffer-name (format bdx-disassembly-buffer name))
+           (buffer (get-buffer buffer-name)))
+      (unless buffer
+        (setq buffer (generate-new-buffer buffer-name))
+        (with-current-buffer buffer
+          (asm-mode)
+          (bdx-disassembly-mode +1)))
+      buffer)))
 
 (defun bdx-disassemble (symbol-plist)
   "Disassemble the symbol encoded in SYMBOL-PLIST.
