@@ -553,6 +553,8 @@ the point in the disassembly buffer and WINDOW-START is the value of
   "Stack of disassembled symbols for going forward.
 Each element is as in `bdx-disassembly-stack'.")
 
+(defvar bdx-disassembly-mode)
+
 (defun bdx--disassembly-buffer ()
   "Get the name for the disassembly buffer."
   (if bdx-disassembly-mode
