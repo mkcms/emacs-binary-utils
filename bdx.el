@@ -624,20 +624,9 @@ symbol."
 
 (defun bdx-disassemble-name (name)
   "Disassemble the symbol named NAME.
-This is just a wrapper for `bdx-disassemble'."
+NAME can be either mangled or demangled.  This is just a wrapper for
+`bdx-disassemble'."
   (bdx-disassemble `(:name ,name)))
-
-(defun bdx-disassemble-demangled-name (name)
-  "Disassemble the symbol whose demangled name is NAME.
-This is just a wrapper for `bdx-disassemble'."
-  (bdx-disassemble `(:demangled ,name)))
-
-(defun bdx-disassemble-mangled-or-demangled-name (name)
-  "Disassemble NAME, which can be either a mangled or demangled name."
-  (let ((item (car (bdx--search (format "demangled:\"%s\"" name) :limit 1))))
-    (if (and item (string= (plist-get item :demangled) name))
-        (bdx-disassemble-demangled-name name)
-      (bdx-disassemble-name name))))
 
 (defun bdx--disassemble-from-history-var (forward)
   "Disassemble the previously disassembled sym, or the next one if FORWARD."
