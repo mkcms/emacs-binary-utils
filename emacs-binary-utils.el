@@ -4,7 +4,7 @@
 
 ;; Author: Michał Krzywkowski <k.michal@zoho.com>
 ;; Keywords: languages, tools
-;; Package-Requires: ((emacs "27") (seq "2.24") (project "0.10.0") (map "3.3.1"))
+;; Package-Requires: ((emacs "29.1") (seq "2.24") (project "0.10.0") (map "3.3.1"))
 
 ;; This program is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by

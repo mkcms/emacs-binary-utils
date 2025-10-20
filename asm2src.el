@@ -4,6 +4,8 @@
 
 ;; Author: Michał Krzywkowski <k.michal@zoho.com>
 ;; Keywords: languages, tools
+;; Version: 0.1.0
+;; Homepage: https://github.com/mkcms/emacs-binary-utils
 ;; Package-Requires: ((emacs "27"))
 
 ;; This program is free software; you can redistribute it and/or modify
@@ -97,8 +99,7 @@
                          `(
                            asm2src-file ,file
                            asm2src-line ,line
-                           asm2src-id   ,(gensym)
-                           ))))
+                           asm2src-id   ,(gensym)))))
 
 (defun asm2src-process-buffer ()
   "Process source mappings in current buffer.
