@@ -4,6 +4,9 @@
 
 ;; Author: Michał Krzywkowski <k.michal@zoho.com>
 ;; Keywords: languages, tools
+;; Version: 0.1.0
+;; Homepage: https://github.com/mkcms/emacs-binary-utils
+;; Package-Requires: ((emacs "27") (seq "2.24"))
 
 ;; This program is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
@@ -82,9 +85,7 @@
               ".single" ".float"        ; 32 bit float
               ".double"                 ; 64 bit float
 
-              ".zero"
-
-              )))
+              ".zero")))
     (unless asm-data--big-values-support
       (setq val (delete ".8byte" val))
       (setq val (delete ".octa" val)))
@@ -97,8 +98,7 @@
     (".long" . ".int")
     (".short" . ".2byte")
     (".hword" . ".short")
-    (".float" . ".single")
-    )
+    (".float" . ".single"))
   "Alist of directive aliases.  Keys are aliases, values are directives.")
 
 (defcustom asm-data-endianness 'little

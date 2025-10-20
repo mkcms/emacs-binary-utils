@@ -4,6 +4,8 @@
 
 ;; Author: Michał Krzywkowski <k.michal@zoho.com>
 ;; Keywords: languages, tools
+;; Version: 0.1.0
+;; Homepage: https://github.com/mkcms/emacs-binary-utils
 ;; Package-Requires: ((emacs "27"))
 
 ;; This program is free software; you can redistribute it and/or modify
@@ -59,8 +61,7 @@
     binfile-postprocess-boring-comments
     binfile-postprocess-numeric-to-symbolic-references
     binfile-postprocess-unused-symbolic-local-references
-    binfile-postprocess-add-relocation-buttons
-    )
+    binfile-postprocess-add-relocation-buttons)
   "List of functions that postprocess ASM regions.
 Each function is called with three arguments (BEG END NAME),
 where BEG and END are region bounds and NAME is the name of the
@@ -189,8 +190,7 @@ The groups are:
           ?<
           ,function-name
           (optional "+0x" (+ hex-digit))
-          ?>
-          )))
+          ?>)))
 
 (defun binfile-postprocess-local-jumps (_beg _end function-name)
   "Labelize FUNCTION-NAME and rewrite jumps to symbolic jumps to those labels."

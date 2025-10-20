@@ -4,6 +4,9 @@
 
 ;; Author: Michał Krzywkowski <k.michal@zoho.com>
 ;; Keywords: tools, c
+;; Version: 0.1.0
+;; Homepage: https://github.com/mkcms/emacs-binary-utils
+;; Package-Requires: ((emacs "29.1"))
 
 ;; This program is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
@@ -496,8 +499,7 @@ This will error if `bdx-demangle-names' is nil."
         (pcase-let (((map (:outdated (map (:binary binary-outdated)
                                           (:symbol symbol-outdated)))
                           :demangled :name :path
-                          :size :section :address :type
-                          )
+                          :size :section :address :type)
                      (bdx-data cand)))
           (insert (propertize (or demangled name "(ERROR: No name)")
                               'face 'font-lock-constant-face)
