@@ -239,6 +239,7 @@ as a property of the string."
   (get-text-property 0 'bdx-data string))
 
 (defvar bdx--last-process nil)
+(defvar bdx--prev-candidates nil)
 (defvar bdx--all-candidates nil)
 (defvar bdx--outdated-files nil)
 (defvar bdx--sources-needing-recompilation nil
@@ -250,6 +251,7 @@ as a property of the string."
 (defun bdx--ivy-collection-function (string &rest _args)
   "Collect candidates for query STRING.
 This should be used as COLLECTION for `ivy-read'."
+  (setq bdx--prev-candidates bdx--all-candidates)
   (setq bdx--all-candidates nil)
   (setq bdx--outdated-files nil)
   (setq bdx--sources-needing-recompilation nil)
@@ -264,7 +266,7 @@ This should be used as COLLECTION for `ivy-read'."
 
   (let ((depth (minibuffer-depth)))
     (or (ivy-more-chars)
-        (prog1 '("" "working...")
+        (prog1 bdx--prev-candidates
           (setq
            bdx--last-process
            (bdx--search-async
@@ -396,6 +398,7 @@ a symbol."
                        (setq bdx--callback #'ignore)
                        (setq bdx--done-callback #'ignore)
                        (setq bdx--error-callback #'ignore)
+                       (setq bdx--all-candidates nil)
                        (when (processp bdx--last-process)
                          (delete-process bdx--last-process)
                          (accept-process-output bdx--last-process 0.1))))))
