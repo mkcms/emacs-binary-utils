@@ -264,7 +264,8 @@ This should be used as COLLECTION for `ivy-read'."
     (delete-process bdx--last-process)
     (accept-process-output bdx--last-process 0.1))
 
-  (let ((depth (minibuffer-depth)))
+  (let ((depth (minibuffer-depth))
+        (start (current-time)))
     (or (ivy-more-chars)
         (prog1 bdx--prev-candidates
           (setq
@@ -301,7 +302,14 @@ This should be used as COLLECTION for `ivy-read'."
                         "Warning: %s binary file(s) are older than their"
                         " source files, re-compilation and re-index needed")
                        (length bdx--sources-needing-recompilation)))))
-              (when (eq (minibuffer-depth) depth)
+              (when (and (eq (minibuffer-depth) depth)
+                         (> (time-to-seconds (time-since start)) 1.0))
+                ;; To minimize the flicker as the user types (when the old
+                ;; candidate list gets removed, minibuffer is cleared and we
+                ;; haven't yet received any output from the process to
+                ;; repopulate the minibuffer), wait some time before updating
+                ;; the minibuffer with this batch.  (time-since start) is
+                ;; basically time since last character was typed.
                 (ivy-update-candidates bdx--all-candidates)))
             :done-callback
             (lambda ()
