@@ -569,7 +569,7 @@ Each element is as in `bdx-disassembly-stack'.")
 (defvar bdx-disassembly-mode)
 
 (defun bdx--disassembly-buffer ()
-  "Get the name for the disassembly buffer."
+  "Get the disassembly buffer."
   (if bdx-disassembly-mode
       (current-buffer)
     (let* ((name
@@ -589,8 +589,19 @@ Each element is as in `bdx-disassembly-stack'.")
         (setq buffer (generate-new-buffer buffer-name))
         (with-current-buffer buffer
           (asm-mode)
-          (bdx-disassembly-mode +1)))
+          (bdx-disassembly-mode +1)
+          (setq-local revert-buffer-function #'bdx-revert-disassembly-buffer)))
       buffer)))
+
+(defun bdx-revert-disassembly-buffer (&optional _ignore-auto _noconfirm)
+  "Revert the current disassembly buffer.
+IGNORE-AUTO and NOCONFIRM are unused."
+  (interactive)
+  (unless bdx-disassembly-current-symbol
+    (error "Not in a disassembly buffer"))
+  (let ((bdx-disassembly-stack nil)
+        (bdx-disassembly-forward-stack nil))
+    (bdx-disassemble bdx-disassembly-current-symbol)))
 
 (defun bdx-disassemble (symbol-plist)
   "Disassemble the symbol encoded in SYMBOL-PLIST.
@@ -681,6 +692,7 @@ NAME can be either mangled or demangled.  This is just a wrapper for
   (let ((map (make-keymap)))
     (define-key map (kbd "C-c M-p") #'bdx-disassemble-previous)
     (define-key map (kbd "C-c M-n") #'bdx-disassemble-next)
+    (define-key map (kbd "C-c M-r") #'bdx-revert-disassembly-buffer)
     map)
   "Keymap used in `bdx-disassembly-mode'.")
 
