@@ -688,10 +688,47 @@ NAME can be either mangled or demangled.  This is just a wrapper for
     (error "The forward item stack is empty"))
   (bdx--disassemble-from-history-var t))
 
+(defun bdx-disassembly-goto-item (item)
+  "Disassemble an ITEM from history.
+ITEM should be an index of the item.  0 means the the oldest item
+disassembled in this buffer.  The current item will have the index equal
+to the length of `bdx-disassembly-stack'."
+  (interactive
+   (let ((items
+          (mapcar (pcase-lambda (`(,item _ _)) (plist-get item :name))
+                  (append (reverse bdx-disassembly-stack)
+                          (when bdx-disassembly-current-symbol
+                            (list
+                             (list bdx-disassembly-current-symbol
+                                   (point) (window-start))))
+                          bdx-disassembly-forward-stack))))
+     (list
+      (cl-position (completing-read "Go to history item: " items nil t)
+                   items :test #'string=))))
+  (let ((elems
+         (append (reverse bdx-disassembly-stack)
+                 (when bdx-disassembly-current-symbol
+                   (list
+                    (list bdx-disassembly-current-symbol
+                          (point) (window-start))))
+                 bdx-disassembly-forward-stack)))
+    (when (or (cl-minusp item) (>= item (length elems)))
+      (error "Item out of bounds: %s %s" item (length elems)))
+    (setq bdx-disassembly-current-symbol nil)
+    (setq bdx-disassembly-stack (reverse (seq-subseq elems 0 item)))
+    (pcase-let ((bdx-disassembly-stack nil)
+                (bdx-disassembly-forward-stack nil)
+                (`(,item ,point ,window-start) (seq-elt elems item)))
+      (bdx-disassemble item)
+      (ignore-errors (goto-char point))
+      (ignore-errors (set-window-start (selected-window) window-start)))
+    (setq bdx-disassembly-forward-stack (seq-subseq elems (1+ item)))))
+
 (defvar bdx-disassembly-mode-map
-  (let ((map (make-keymap)))
+  (let ((map (make-sparse-keymap)))
     (define-key map (kbd "C-c M-p") #'bdx-disassemble-previous)
     (define-key map (kbd "C-c M-n") #'bdx-disassemble-next)
+    (define-key map (kbd "C-c M-g") #'bdx-disassembly-goto-item)
     (define-key map (kbd "C-c M-r") #'bdx-revert-disassembly-buffer)
     map)
   "Keymap used in `bdx-disassembly-mode'.")

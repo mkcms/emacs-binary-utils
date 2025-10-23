@@ -429,6 +429,52 @@ int quux(int x) { return x+1; }
       (should (re-search-forward "<quux>:"))
       (should-error (bdx-disassemble-next)))))
 
+(ert-deftest bdx-disassembly-history-goto-item ()
+  (bdx-test--with-files
+      `(("foo.c" "
+int foo() { return 128; }
+int bar(int x) { return x+1; }
+int baz(int x) { return x+1; }
+int quux(int x) { return x+1; }
+" :args ("-c")))
+    (bdx-test--index)
+    (bdx-disassemble (car (bdx--search "name:foo" :limit 1)))
+    (bdx-disassemble (car (bdx--search "name:bar" :limit 1)))
+    (bdx-disassemble (car (bdx--search "name:baz" :limit 1)))
+    (bdx-disassemble (car (bdx--search "name:quux" :limit 1)))
+    (with-current-buffer (bdx--disassembly-buffer)
+      (bdx-disassembly-goto-item 0)
+      (goto-char (point-min))
+      (should (re-search-forward "<foo>:"))
+
+      (bdx-disassembly-goto-item 0)
+      (goto-char (point-min))
+      (should (re-search-forward "<foo>:"))
+
+      (bdx-disassembly-goto-item 3)
+      (goto-char (point-min))
+      (should (re-search-forward "<quux>:"))
+
+      (bdx-disassembly-goto-item 1)
+      (goto-char (point-min))
+      (should (re-search-forward "<bar>:"))
+
+      (bdx-disassembly-goto-item 1)
+      (goto-char (point-min))
+      (should (re-search-forward "<bar>:"))
+
+      (bdx-disassembly-goto-item 3)
+      (goto-char (point-min))
+      (should (re-search-forward "<quux>:"))
+
+      (bdx-disassembly-goto-item 2)
+      (goto-char (point-min))
+      (should (re-search-forward "<baz>:"))
+
+      (bdx-disassembly-goto-item 0)
+      (goto-char (point-min))
+      (should (re-search-forward "<foo>:")))))
+
 (ert-deftest bdx-generate-graph ()
   (bdx-test--with-files
       '(("foo.c" "
