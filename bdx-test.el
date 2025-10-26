@@ -475,6 +475,33 @@ int quux(int x) { return x+1; }
       (goto-char (point-min))
       (should (re-search-forward "<foo>:")))))
 
+(ert-deftest bdx-find-definition ()
+  (bdx-test--with-files
+      `(("foo.c" "
+int foo() { return 128; }
+int quux(int x) { return x+1; }
+" :args ("-c" "-g"))
+        ("bar.c" "
+int bar(int x) { return x+1; }
+int baz(int x) { return x+1; }
+" :args ("-c" "-g")))
+    (bdx-test--index)
+
+    (pcase-let ((`(,file . ,line)
+                 (bdx-find-definition
+                  (car (bdx--search "name:quux" :limit 1)))))
+      (should (stringp file))
+      (find-file file)
+      (should (numberp line))
+      (should (looking-at-p "int quux")))
+    (pcase-let ((`(,file . ,line)
+                 (bdx-find-definition
+                  (car (bdx--search "name:baz" :limit 1)))))
+      (should (stringp file))
+      (find-file file)
+      (should (numberp line))
+      (should (looking-at-p "int baz")))))
+
 (ert-deftest bdx-generate-graph ()
   (bdx-test--with-files
       '(("foo.c" "

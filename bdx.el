@@ -741,6 +741,44 @@ to the length of `bdx-disassembly-stack'."
   :keymap bdx-disassembly-mode-map)
 
 
+;; Find definition
+
+(defun bdx-find-definition (symbol-plist)
+  "Find file containing definition of SYMBOL-PLIST and go to definition line.
+The return value is a cons (FILE . LINE)."
+  (interactive (list (bdx-query "Find definition: "
+                                :require-match t)))
+  (pcase-let (((map :name :demangled :path :section) symbol-plist))
+    (let ((command
+           (apply #'bdx--command "find-definition"
+                  (append (list "-n" "1")
+                          (list
+                           (and name (format "fullname:\"%s\"" name))
+                           (and demangled
+                                (format "demangled:\"%s\"" demangled))
+                           (and path (format "path:\"%s\"" path))
+                           (and section
+                                (format "section:\"%s\"" section))))))
+          file line sym)
+      (with-temp-buffer
+        (apply #'call-process (car command)
+               nil (current-buffer) nil (cdr command))
+
+        (goto-char (point-min))
+        (if (looking-at "^\\(.*\\):\\([0-9]+\\): \\(.*\\)")
+            (setq file (match-string 1)
+                  line (string-to-number (match-string 2))
+                  sym (match-string 3))
+          (error "No definition found")))
+      (when (equal sym name)
+        (with-current-buffer (find-file-noselect file)
+          (goto-char (point-min))
+          (forward-line (1- line))
+          (pop-to-buffer (current-buffer))
+          (pulse-momentary-highlight-one-line)
+          (cons file line))))))
+
+
 ;; Graphs
 
 (defun bdx-generate-graph (start-query goal-query &optional output-buffer)
