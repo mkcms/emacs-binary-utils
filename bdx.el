@@ -695,7 +695,9 @@ disassembled in this buffer.  The current item will have the index equal
 to the length of `bdx-disassembly-stack'."
   (interactive
    (let ((items
-          (mapcar (pcase-lambda (`(,item _ _)) (plist-get item :name))
+          (mapcar (pcase-lambda (`(,item _ _))
+                    (or (plist-get item :demangled)
+                        (plist-get item :name)))
                   (append (reverse bdx-disassembly-stack)
                           (when bdx-disassembly-current-symbol
                             (list
