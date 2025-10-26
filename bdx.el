@@ -754,8 +754,6 @@ The return value is a cons (FILE . LINE)."
                   (append (list "-n" "1")
                           (list
                            (and name (format "fullname:\"%s\"" name))
-                           (and demangled
-                                (format "demangled:\"%s\"" demangled))
                            (and path (format "path:\"%s\"" path))
                            (and section
                                 (format "section:\"%s\"" section))))))
