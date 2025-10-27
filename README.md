@@ -55,8 +55,7 @@ It also provides these API functions:
 
 - `bdx-query`
 
-  Read a bdx query from the user, interactively displaying results, and return
-  symbol data.
+  Read a bdx query from the user, interactively displaying results.
 
 - `bdx-generate-graph`
 

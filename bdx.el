@@ -53,8 +53,7 @@
 ;;
 ;; - `bdx-query'
 ;;
-;;   Read a bdx query from the user, interactively displaying results, and
-;;   return symbol data.
+;;   Read a bdx query from the user, interactively displaying results.
 ;;
 ;; - `bdx-generate-graph'
 ;;
@@ -383,7 +382,8 @@ selecting all possible completions for section that start with
 (defvar bdx--show-templates)
 (defvar bdx--show-sections)
 
-(cl-defun bdx-query (prompt &key initial-input history require-match)
+(cl-defun bdx-query (prompt &key initial-input history require-match
+                            action)
   "Search for single symbol with PROMPT.
 INITIAL-INPUT if non-nil is inserted into the minibuffer as the
 initial input string.
@@ -391,7 +391,10 @@ initial input string.
 HISTORY can be a history variable.
 
 REQUIRE-MATCH if non-nil will disallow exiting without selecting
-a symbol."
+a symbol.
+
+ACTION can be a function taking one argument that will be called
+with SYMBOL-PLIST for the selected symbol."
   ;; Exit early if index does not exist
   (with-temp-buffer
     (let* ((command (bdx--command "search" "--check-index-exists"))
@@ -406,23 +409,26 @@ a symbol."
   (setq bdx--show-sections t)
   (setq bdx--query-buffer (current-buffer))
   (setq bdx--last-error nil)
-  (bdx-data
-   (ivy-read prompt #'bdx--ivy-collection-function
-             :require-match require-match
-             :dynamic-collection t
-             :keymap bdx-search-keymap
-             :caller 'bdx
-             :history history
-             :initial-input initial-input
-             :unwind (lambda ()
-                       (setq bdx--query-buffer nil)
-                       (setq bdx--callback #'ignore)
-                       (setq bdx--done-callback #'ignore)
-                       (setq bdx--error-callback #'ignore)
-                       (setq bdx--all-candidates nil)
-                       (when (processp bdx--last-process)
-                         (delete-process bdx--last-process)
-                         (accept-process-output bdx--last-process 0.1))))))
+  (ivy-read prompt #'bdx--ivy-collection-function
+            :require-match require-match
+            :dynamic-collection t
+            :keymap bdx-search-keymap
+            :caller 'bdx
+            :history history
+            :initial-input initial-input
+            :action (lambda (selection)
+                      (when action
+                        (funcall action (bdx-data selection))))
+            :unwind (lambda ()
+                      (setq bdx--query-buffer nil)
+                      (setq bdx--callback #'ignore)
+                      (setq bdx--done-callback #'ignore)
+                      (setq bdx--error-callback #'ignore)
+                      (setq bdx--all-candidates nil)
+                      (when (processp bdx--last-process)
+                        (delete-process bdx--last-process)
+                        (accept-process-output bdx--last-process 0.1)))
+            :extra-props `(:bdx-action ,action)))
 
 (cl-defun bdx-get-query (prompt &key history)
   "Get a search query from the user, with results preview, using PROMPT.
@@ -533,7 +539,9 @@ This turns a string of the form \\='function<type<T>>\\=' into
 
   (let ((inhibit-read-only t)
         (total-found
-         (or (and cands (plist-get (bdx-data (car cands)) :total)) 0)))
+         (or (and cands (plist-get (bdx-data (car cands)) :total)) 0))
+        (action (plist-get (ivy-state-extra-props ivy-last)
+                           :bdx-action)))
     (erase-buffer)
     (setq buffer-read-only t)
 
@@ -568,8 +576,11 @@ This turns a string of the form \\='function<type<T>>\\=' into
                           :size :section :address :type)
                      (bdx-data cand)))
           (insert (propertize (or demangled name "(ERROR: No name)")
-                              'face 'font-lock-constant-face)
-                  ":\n")
+                              'face 'font-lock-constant-face))
+          (make-button (line-beginning-position) (line-end-position)
+                       'action (lambda (&rest _args)
+                                 (funcall action (bdx-data cand))))
+          (insert ":\n")
           (cond
            (binary-outdated
             (insert "    " (propertize "Warning:" 'face 'warning)
@@ -586,6 +597,8 @@ This turns a string of the form \\='function<type<T>>\\=' into
                       'font-lock-number-face)
           (insert-row "type" type 'font-lock-type-face)
           (insert "\n")))))
+
+  (button-mode +1)
   (goto-char (point-min)))
 
 (ivy-configure 'bdx :occur #'bdx--occur)
@@ -662,46 +675,49 @@ IGNORE-AUTO and NOCONFIRM are unused."
   "Disassemble the symbol encoded in SYMBOL-PLIST.
 Interactively, prompts for a query and allows selecting a single
 symbol."
-  (interactive (list (bdx-query "Disassemble symbol: "
-                                :require-match t)))
-  (with-current-buffer (bdx--disassembly-buffer)
-    (pcase-let (((map :name :demangled :path :section) symbol-plist))
-      (let ((command
-             (apply #'bdx--command "disass"
-                    (append (and bdx-disassembler (list "-D" bdx-disassembler))
-                            (and bdx-disassembler-options
-                                 (list "-M" bdx-disassembler-options))
-                            (and bdx-disassembly-results-limit
-                                 (list "-n" (number-to-string
-                                             bdx-disassembly-results-limit)))
-                            (list
-                             (and name (format "fullname:\"%s\"" name))
-                             (and demangled
-                                  (format "demangled:\"%s\"" demangled))
-                             (and path (format "path:\"%s\"" path))
-                             (and section
-                                  (format "section:\"%s\"" section))))))
-            (current-state
-             (and bdx-disassembly-current-symbol
-                  (list bdx-disassembly-current-symbol
-                        (point) (window-start))))
-            (inhibit-read-only t))
-        (erase-buffer)
+  (interactive (list 'interactive))
+  (if (eq symbol-plist 'interactive)
+      (bdx-query "Disassemble symbol: " :require-match t
+                 :action #'bdx-disassemble)
+    (with-current-buffer (bdx--disassembly-buffer)
+      (pcase-let (((map :name :demangled :path :section) symbol-plist))
+        (let ((command
+               (apply #'bdx--command "disass"
+                      (append (and bdx-disassembler
+                                   (list "-D" bdx-disassembler))
+                              (and bdx-disassembler-options
+                                   (list "-M" bdx-disassembler-options))
+                              (and bdx-disassembly-results-limit
+                                   (list "-n" (number-to-string
+                                               bdx-disassembly-results-limit)))
+                              (list
+                               (and name (format "fullname:\"%s\"" name))
+                               (and demangled
+                                    (format "demangled:\"%s\"" demangled))
+                               (and path (format "path:\"%s\"" path))
+                               (and section
+                                    (format "section:\"%s\"" section))))))
+              (current-state
+               (and bdx-disassembly-current-symbol
+                    (list bdx-disassembly-current-symbol
+                          (point) (window-start))))
+              (inhibit-read-only t))
+          (erase-buffer)
 
-        (pop-to-buffer (current-buffer))
-        (apply #'call-process (car command)
-               nil (current-buffer) nil (cdr command))
+          (pop-to-buffer (current-buffer))
+          (apply #'call-process (car command)
+                 nil (current-buffer) nil (cdr command))
 
-        (run-hooks 'bdx-disassembly-hook)
+          (run-hooks 'bdx-disassembly-hook)
 
-        (setq buffer-read-only t)
-        (setq buffer-undo-list t)
+          (setq buffer-read-only t)
+          (setq buffer-undo-list t)
 
-        (when current-state (push current-state bdx-disassembly-stack))
-        (setq bdx-disassembly-current-symbol symbol-plist)
+          (when current-state (push current-state bdx-disassembly-stack))
+          (setq bdx-disassembly-current-symbol symbol-plist)
 
-        (when (equal symbol-plist (caar bdx-disassembly-forward-stack))
-          (pop bdx-disassembly-forward-stack))))))
+          (when (equal symbol-plist (caar bdx-disassembly-forward-stack))
+            (pop bdx-disassembly-forward-stack)))))))
 
 (defun bdx-disassemble-name (name)
   "Disassemble the symbol named NAME.
@@ -800,36 +816,41 @@ to the length of `bdx-disassembly-stack'."
 
 (defun bdx-find-definition (symbol-plist)
   "Find file containing definition of SYMBOL-PLIST and go to definition line.
-The return value is a cons (FILE . LINE)."
-  (interactive (list (bdx-query "Find definition: "
-                                :require-match t)))
-  (pcase-let (((map :name :demangled :path :section) symbol-plist))
-    (let ((command
-           (apply #'bdx--command "find-definition"
-                  (append (list "-n" "1")
-                          (list
-                           (and name (format "fullname:\"%s\"" name))
-                           (and path (format "path:\"%s\"" path))
-                           (and section
-                                (format "section:\"%s\"" section))))))
-          file line sym)
-      (with-temp-buffer
-        (apply #'call-process (car command)
-               nil (current-buffer) nil (cdr command))
+The return value is a cons (FILE . LINE).
+If SYMBOL-PLIST is the symbol \\='interactive, then prompt for the symbol."
+  (interactive (list 'interactive))
+  (if (eq symbol-plist 'interactive)
+      (list (bdx-query "Find definition: " :require-match t
+                       :action #'bdx-find-definition))
+    (pcase-let (((map :name :path :section) symbol-plist))
+      (let ((command
+             (apply #'bdx--command "find-definition"
+                    (append (list "-n" "1")
+                            (list
+                             (and name (format "fullname:\"%s\"" name))
+                             (and path (format "path:\"%s\"" path))
+                             (and section
+                                  (format "section:\"%s\"" section))))))
+            file line sym)
+        (with-temp-buffer
+          (apply #'call-process (car command)
+                 nil (current-buffer) nil (cdr command))
 
-        (goto-char (point-min))
-        (if (looking-at "^\\(.*\\):\\([0-9]+\\): \\(.*\\)")
-            (setq file (match-string 1)
-                  line (string-to-number (match-string 2))
-                  sym (match-string 3))
-          (error "No definition found")))
-      (when (equal sym name)
-        (with-current-buffer (find-file-noselect file)
           (goto-char (point-min))
-          (forward-line (1- line))
-          (pop-to-buffer (current-buffer))
-          (pulse-momentary-highlight-one-line)
-          (cons file line))))))
+          (if (looking-at "^\\(.*\\):\\([0-9]+\\): \\(.*\\)")
+              (setq file (match-string 1)
+                    line (string-to-number (match-string 2))
+                    sym (match-string 3))
+            (error "No definition found")))
+        (when (equal sym name)
+          (with-current-buffer (or (find-buffer-visiting file)
+                                   (find-file-noselect file))
+            (pop-to-buffer (current-buffer))
+            (goto-char (point-min))
+            (forward-line (1- line))
+            (pulse-momentary-highlight-one-line)
+            (recenter-top-bottom)
+            (cons file line)))))))
 
 
 ;; Graphs
