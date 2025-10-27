@@ -41,6 +41,10 @@ The commands defined in it are:
   Read a bdx query from the user with `ivy`, and use `binfile` (or a custom
   function) to disassemble the selected symbol.
 
+- `bdx-find-definition`
+
+  Read a bdx query from the user and go to the selected symbol's definition.
+
 - `bdx-show-graph-xdg-open`
 
   Read two queries from user, START and GOAL, and use `bdx` to generate an
