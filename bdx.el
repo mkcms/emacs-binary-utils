@@ -367,11 +367,17 @@ selecting all possible completions for section that start with
 (defvar bdx-search-keymap
   (let ((map (make-sparse-keymap)))
     (define-key map (kbd "C-c C-d") #'bdx-toggle-name-demangling)
+    (define-key map (kbd "C-c C-f") #'bdx-toggle-filename)
+    (define-key map (kbd "C-c C-t") #'bdx-toggle-templates)
+    (define-key map (kbd "C-c C-s") #'bdx-toggle-sections)
     (define-key map (kbd "<tab>") #'bdx-complete)
     map)
   "Keymap used in minibuffer in `bdx-query'.")
 
 (defvar bdx--demangle-names)
+(defvar bdx--show-filenames)
+(defvar bdx--show-templates)
+(defvar bdx--show-sections)
 
 (cl-defun bdx-query (prompt &key initial-input history require-match)
   "Search for single symbol with PROMPT.
@@ -391,6 +397,9 @@ a symbol."
         (error (buffer-string)))))
 
   (setq bdx--demangle-names nil)
+  (setq bdx--show-filenames t)
+  (setq bdx--show-templates t)
+  (setq bdx--show-sections t)
   (setq bdx--query-buffer (current-buffer))
   (setq bdx--last-error nil)
   (bdx-data
@@ -421,10 +430,46 @@ HISTORY can be a history variable."
   "If non-nil, the symbols in minibuffer are demangled.")
 
 (defun bdx-toggle-name-demangling ()
-  "Toggle name demangling in current search session.
-This will error if `bdx-demangle-names' is nil."
+  "Toggle name demangling in current search session."
   (interactive)
   (setq bdx--demangle-names (not bdx--demangle-names)))
+
+(defvar bdx--show-filenames t
+  "If non-nil, the filenames are shown in the minibuffer.")
+
+(defun bdx-toggle-filename ()
+  "Toggle showing filenames in current search session."
+  (interactive)
+  (setq bdx--show-filenames (not bdx--show-filenames)))
+
+(defvar bdx--show-templates t
+  "If nil, the templates are hidden in the minibuffer.")
+
+(defun bdx-toggle-templates ()
+  "Toggle showing templates in current search session."
+  (interactive)
+  (setq bdx--show-templates (not bdx--show-templates)))
+
+(defvar bdx--show-sections t
+  "If nil, the sections are hidden in the minibuffer.")
+
+(defun bdx-toggle-sections ()
+  "Toggle showing section names in current search session."
+  (interactive)
+  (setq bdx--show-sections (not bdx--show-sections)))
+
+(defun bdx--untemplatize-string (str)
+  "Remove C++ templates from STR.
+This turns a string of the form \\='function<type<T>>\\=' into
+\\'function<...>\\'."
+  (cl-loop with depth = 0
+           for char across str
+           if (eq char ?<) do (when (eq 1 (cl-incf depth))
+                                (setq chars (nconc chars (list ?< ?. ?. ?.))))
+           else if (eq char ?>) do (when (zerop (cl-decf depth))
+                                     (setq chars (nconc chars (list ?>))))
+           else if (zerop depth) collect char into chars
+           finally return (concat chars)))
 
 (defun bdx--ivy-display-transformer (string)
   "Return a string for displaying STRING in the minibuffer."
@@ -432,13 +477,19 @@ This will error if `bdx-demangle-names' is nil."
       (cl-destructuring-bind
           (&key name section path demangled &allow-other-keys) data
         (concat
-         (if (and demangled bdx--demangle-names) demangled name)
+         (if (and demangled bdx--demangle-names)
+             (if bdx--show-templates
+                 demangled
+               (bdx--untemplatize-string demangled))
+           name)
          " "
-         (propertize (concat "[" section "]")
-                     'face 'ivy-grep-info)
+         (and bdx--show-sections
+              (propertize (concat "[" section "]")
+                          'face 'ivy-grep-info))
          " "
-         (propertize (file-relative-name (or path ""))
-                     'face 'shadow)))
+         (and bdx--show-filenames
+              (propertize (file-relative-name (or path ""))
+                          'face 'shadow))))
     ""))
 
 (ivy-configure 'bdx
