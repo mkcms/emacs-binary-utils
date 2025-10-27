@@ -254,7 +254,8 @@ as a property of the string."
 (defun bdx--ivy-collection-function (string &rest _args)
   "Collect candidates for query STRING.
 This should be used as COLLECTION for `ivy-read'."
-  (setq bdx--prev-candidates bdx--all-candidates)
+  (when bdx--all-candidates
+    (setq bdx--prev-candidates bdx--all-candidates))
   (setq bdx--all-candidates nil)
   (setq bdx--outdated-files nil)
   (setq bdx--sources-needing-recompilation nil)
@@ -317,7 +318,8 @@ This should be used as COLLECTION for `ivy-read'."
             :done-callback
             (lambda ()
               (when (eq (minibuffer-depth) depth)
-                (ivy-update-candidates bdx--all-candidates)))
+                (ivy-update-candidates bdx--all-candidates)
+                (setq bdx--prev-candidates bdx--all-candidates)))
             :error-callback
             (lambda (err-string) (setq bdx--last-error err-string))))))))
 
