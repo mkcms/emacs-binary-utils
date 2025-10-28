@@ -600,7 +600,8 @@ This turns a string of the form \\='function<type<T>>\\=' into
           (insert-row "type" type 'font-lock-type-face)
           (insert "\n")))))
 
-  (button-mode +1)
+  (when (fboundp 'button-mode)
+    (button-mode +1))
   (goto-char (point-min)))
 
 (ivy-configure 'bdx :occur #'bdx--occur)
@@ -850,7 +851,7 @@ If SYMBOL-PLIST is the symbol \\='interactive, then prompt for the symbol."
             (pop-to-buffer (current-buffer))
             (goto-char (point-min))
             (forward-line (1- line))
-            (pulse-momentary-highlight-one-line)
+            (pulse-momentary-highlight-one-line (point))
             (recenter-top-bottom)
             (cons file line)))))))
 
