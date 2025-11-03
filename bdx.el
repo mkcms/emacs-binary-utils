@@ -612,14 +612,6 @@ This turns a string of the form \\='function<type<T>>\\=' into
 (defvar bdx-disassembly-buffer "*bdx disassembly %s*"
   "String template for the disassembly buffer name.")
 
-(defvar bdx-disassembler nil
-  "Command to use as -D option to \\='bdx disass\\='.")
-
-(defvar bdx-disassembler-options "--reloc"
-  "Additional options to append to the disassembler.
-If `bdx-disassembler' is nil, then these options are appended to
-the default objdump invocation.")
-
 (defvar bdx-disassembly-results-limit 10
   "If non-nil, then only disassemble at most that many symbols in one buffer.")
 
@@ -686,11 +678,7 @@ symbol."
       (pcase-let (((map :name :demangled :path :section) symbol-plist))
         (let ((command
                (apply #'bdx--command "disass"
-                      (append (and bdx-disassembler
-                                   (list "-D" bdx-disassembler))
-                              (and bdx-disassembler-options
-                                   (list "-M" bdx-disassembler-options))
-                              (and bdx-disassembly-results-limit
+                      (append (and bdx-disassembly-results-limit
                                    (list "-n" (number-to-string
                                                bdx-disassembly-results-limit)))
                               (list
