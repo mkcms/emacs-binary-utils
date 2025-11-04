@@ -721,6 +721,8 @@ symbol."
 
           (run-hooks 'bdx-disassembly-hook)
 
+          (goto-char (point-min))
+
           (setq buffer-read-only t)
           (setq buffer-undo-list t)
 
