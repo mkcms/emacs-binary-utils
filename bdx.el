@@ -692,12 +692,32 @@ symbol."
                (and bdx-disassembly-current-symbol
                     (list bdx-disassembly-current-symbol
                           (point) (window-start))))
-              (inhibit-read-only t))
+              (inhibit-read-only t)
+              process)
           (erase-buffer)
 
           (pop-to-buffer (current-buffer))
-          (apply #'call-process (car command)
-                 nil (current-buffer) nil (cdr command))
+          (setq process
+                (make-process
+                 :name "bdx-disassembly"
+                 :command command
+                 :buffer (current-buffer)
+                 :stderr (with-current-buffer
+                             (get-buffer-create bdx-stderr-buffer)
+                           (goto-char (point-max))
+                           (let ((inhibit-read-only t))
+                             (insert "\n\n"))
+                           (current-buffer))
+                 :sentinel
+                 (lambda (proc _status)
+                   (let ((code (process-exit-status proc)))
+                     (unless (eq 0 code)
+                       (with-current-buffer (process-buffer proc)
+                         (insert
+                          (format
+                           "error: Disassembly process failed with code %s"
+                           code))))))))
+          (while (accept-process-output process))
 
           (run-hooks 'bdx-disassembly-hook)
 
