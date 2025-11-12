@@ -137,6 +137,32 @@ The ARGS list is filtered out to keep only non-nil values."
           (princ (format "Command: %S\n" cmd) (current-buffer))))
       cmd)))
 
+(defun bdx--run-sync-process (args)
+  "Run bdx process synchronously, passing ARGS to it.
+The output is inserted into the current buffer."
+  (let* ((name (format "bdx-%s" (car args)))
+         (process
+          (make-process
+           :name name
+           :command (apply #'bdx--command args)
+           :buffer (current-buffer)
+           :stderr (with-current-buffer
+                       (get-buffer-create bdx-stderr-buffer)
+                     (goto-char (point-max))
+                     (let ((inhibit-read-only t))
+                       (insert "\n\n"))
+                     (current-buffer))
+           :sentinel
+           (lambda (proc _status)
+             (let ((code (process-exit-status proc)))
+               (unless (eq 0 code)
+                 (with-current-buffer (process-buffer proc)
+                   (insert
+                    (format
+                     "error: %s process failed with code %s"
+                     name code)))))))))
+    (while (accept-process-output process))))
+
 
 ;; Searching
 
@@ -676,48 +702,27 @@ symbol."
                  :action #'bdx-disassemble)
     (with-current-buffer (bdx--disassembly-buffer)
       (pcase-let (((map :name :demangled :path :section) symbol-plist))
-        (let ((command
-               (apply #'bdx--command "disass"
-                      (append (and bdx-disassembly-results-limit
-                                   (list "-n" (number-to-string
-                                               bdx-disassembly-results-limit)))
-                              (list
-                               (and name (format "fullname:\"%s\"" name))
-                               (and demangled
-                                    (format "demangled:\"%s\"" demangled))
-                               (and path (format "path:\"%s\"" path))
-                               (and section
-                                    (format "section:\"%s\"" section))))))
+        (let ((args
+               (append '("disass")
+                       (and bdx-disassembly-results-limit
+                            (list "-n" (number-to-string
+                                        bdx-disassembly-results-limit)))
+                       (list
+                        (and name (format "fullname:\"%s\"" name))
+                        (and demangled
+                             (format "demangled:\"%s\"" demangled))
+                        (and path (format "path:\"%s\"" path))
+                        (and section
+                             (format "section:\"%s\"" section)))))
               (current-state
                (and bdx-disassembly-current-symbol
                     (list bdx-disassembly-current-symbol
                           (point) (window-start))))
-              (inhibit-read-only t)
-              process)
+              (inhibit-read-only t))
           (erase-buffer)
 
           (pop-to-buffer (current-buffer))
-          (setq process
-                (make-process
-                 :name "bdx-disassembly"
-                 :command command
-                 :buffer (current-buffer)
-                 :stderr (with-current-buffer
-                             (get-buffer-create bdx-stderr-buffer)
-                           (goto-char (point-max))
-                           (let ((inhibit-read-only t))
-                             (insert "\n\n"))
-                           (current-buffer))
-                 :sentinel
-                 (lambda (proc _status)
-                   (let ((code (process-exit-status proc)))
-                     (unless (eq 0 code)
-                       (with-current-buffer (process-buffer proc)
-                         (insert
-                          (format
-                           "error: Disassembly process failed with code %s"
-                           code))))))))
-          (while (accept-process-output process))
+          (bdx--run-sync-process args)
 
           (run-hooks 'bdx-disassembly-hook)
 
@@ -836,18 +841,16 @@ If SYMBOL-PLIST is the symbol \\='interactive, then prompt for the symbol."
       (list (bdx-query "Find definition: " :require-match t
                        :action #'bdx-find-definition))
     (pcase-let (((map :name :path :section) symbol-plist))
-      (let ((command
-             (apply #'bdx--command "find-definition"
-                    (append (list "-n" "1")
-                            (list
-                             (and name (format "fullname:\"%s\"" name))
-                             (and path (format "path:\"%s\"" path))
-                             (and section
-                                  (format "section:\"%s\"" section))))))
+      (let ((args
+             (append '("find-definition" "-n" "1")
+                     (list
+                      (and name (format "fullname:\"%s\"" name))
+                      (and path (format "path:\"%s\"" path))
+                      (and section
+                           (format "section:\"%s\"" section)))))
             file line sym)
         (with-temp-buffer
-          (apply #'call-process (car command)
-                 nil (current-buffer) nil (cdr command))
+          (bdx--run-sync-process args)
 
           (goto-char (point-min))
           (if (looking-at "^\\(.*\\):\\([0-9]+\\): \\(.*\\)")
