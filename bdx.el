@@ -515,11 +515,19 @@ This turns a string of the form \\='function<type<T>>\\=' into
       (cl-destructuring-bind
           (&key name section path demangled &allow-other-keys) data
         (concat
-         (if (and demangled bdx--demangle-names)
-             (if bdx--show-templates
-                 demangled
-               (bdx--untemplatize-string demangled))
-           name)
+         (let ((line
+                (if (and demangled bdx--demangle-names)
+                    (if bdx--show-templates
+                        demangled
+                      (bdx--untemplatize-string demangled))
+                  name)))
+           (dolist (word (string-split ivy-text))
+             (when (ignore-errors
+                     (let ((case-fold-search t))
+                       (string-match word line)))
+               (add-face-text-property (match-beginning 0) (match-end 0)
+                                       'ivy-minibuffer-match-face-2 nil line)))
+           line)
          " "
          (and bdx--show-sections
               (propertize (concat "[" section "]")
