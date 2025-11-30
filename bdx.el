@@ -528,14 +528,13 @@ This turns a string of the form \\='function<type<T>>\\=' into
                (add-face-text-property (match-beginning 0) (match-end 0)
                                        'ivy-minibuffer-match-face-2 nil line)))
            line)
-         " "
          (and bdx--show-sections
-              (propertize (concat "[" section "]")
+              (propertize (concat " [" section "]")
                           'face 'ivy-grep-info))
-         " "
          (and bdx--show-filenames
-              (propertize (file-relative-name (or path ""))
-                          'face 'shadow))))
+              (concat " "
+                      (propertize (file-relative-name (or path ""))
+                                  'face 'shadow)))))
     ""))
 
 (ivy-configure 'bdx
