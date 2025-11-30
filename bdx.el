@@ -401,7 +401,7 @@ selecting all possible completions for section that start with
     (define-key map (kbd "C-c C-f") #'bdx-toggle-filename)
     (define-key map (kbd "C-c C-t") #'bdx-toggle-templates)
     (define-key map (kbd "C-c C-s") #'bdx-toggle-sections)
-    (define-key map (kbd "<tab>") #'bdx-complete)
+    (define-key map [remap ivy-partial-or-done] #'bdx-complete)
     map)
   "Keymap used in minibuffer in `bdx-query'.")
 
