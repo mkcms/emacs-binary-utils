@@ -533,8 +533,9 @@ This turns a string of the form \\='function<type<T>>\\=' into
                           'face 'ivy-grep-info))
          (and bdx--show-filenames
               (concat " "
-                      (propertize (file-relative-name (or path ""))
-                                  'face 'shadow)))))
+                      (propertize
+                       (file-name-nondirectory (or path ""))
+                       'face 'shadow)))))
     ""))
 
 (ivy-configure 'bdx
