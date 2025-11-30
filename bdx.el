@@ -499,7 +499,7 @@ HISTORY can be a history variable."
 (defun bdx--untemplatize-string (str)
   "Remove C++ templates from STR.
 This turns a string of the form \\='function<type<T>>\\=' into
-\\'function<...>\\'."
+\\='function<...>\\='."
   (cl-loop with depth = 0
            for char across str
            if (eq char ?<) do (when (eq 1 (cl-incf depth))
