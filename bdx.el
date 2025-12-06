@@ -521,7 +521,7 @@ This turns a string of the form \\='function<type<T>>\\=' into
                         demangled
                       (bdx--untemplatize-string demangled))
                   name)))
-           (dolist (word (string-split ivy-text))
+           (dolist (word (split-string ivy-text))
              (when (ignore-errors
                      (let ((case-fold-search t))
                        (string-match word line)))
