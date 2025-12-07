@@ -26,6 +26,10 @@
 (require 'ert)
 (require 'bdx)
 
+(defun bdx-test--wait-for-process (proc)
+  (while (accept-process-output proc))
+  (while (accept-process-output (get-buffer-process bdx-stderr-buffer))))
+
 (cl-defun bdx-test--compile-file
     (filename source &key args)
   (let* ((dir (file-name-directory filename))
@@ -87,7 +91,7 @@ int subdir_file() { return 0; }
                   (lambda (batch)
                     (setq results (nconc results batch)))))
       (should-not results)
-      (while (process-live-p proc) (accept-process-output proc 0.1))
+      (bdx-test--wait-for-process proc)
       (should results)
 
       (setq results (seq-sort-by (lambda (x) (plist-get x :name))
@@ -112,7 +116,7 @@ int subdir_file() { return 0; }
                   (lambda (batch)
                     (setq results (nconc results batch)))))
       (should-not results)
-      (while (process-live-p proc) (accept-process-output proc 0.1))
+      (bdx-test--wait-for-process proc)
       (should results)
 
       (should (equal (expand-file-name "subdir/file.c.o")
@@ -145,7 +149,7 @@ int bar() { return 0; }
              (funcall filter proc chunk)
              (setq output (substring output (length chunk)))))))
       (should-not results)
-      (while (process-live-p proc) (accept-process-output proc 0.1))
+      (bdx-test--wait-for-process proc)
       (should results)
 
       (setq results (seq-sort-by (lambda (x) (plist-get x :name))
@@ -177,7 +181,7 @@ int bar() { return 0; }
       (should-not results)
       (should (equal 0 call-count))
 
-      (while (process-live-p proc) (accept-process-output proc 0.1))
+      (bdx-test--wait-for-process proc)
 
       (should results)
       (should (equal 1 call-count)))))
@@ -192,7 +196,7 @@ int bar() { return 0; }
                   "UNKNOWN_FIELD:1"
                   :error-callback (lambda (err) (setq error-str err))))
       (should-not error-str)
-      (while (process-live-p proc) (accept-process-output proc 0.1))
+      (bdx-test--wait-for-process proc)
       (should (string-match-p "error.*Unknown field \"UNKNOWN_FIELD\""
                               error-str)))))
 
@@ -209,7 +213,7 @@ int bar() { return 0; }
                   :error-callback (lambda (_err) (cl-incf error-calls))))
       (should (= 0 error-calls))
       (should-not results)
-      (while (process-live-p proc) (accept-process-output proc 0.1))
+      (bdx-test--wait-for-process proc)
       (should (= 0 error-calls))
       (should results)
 
@@ -227,7 +231,7 @@ int bar() { return 0; }
                   :error-callback (lambda (_err) (cl-incf error-calls))))
       (should (= 0 error-calls))
       (should-not results)
-      (while (process-live-p proc) (accept-process-output proc 0.1))
+      (bdx-test--wait-for-process proc)
       (should (= 0 error-calls))
       (should results))))
 
@@ -246,7 +250,7 @@ int bar() { return 0; }
                   (lambda (batch)
                     (setq results (nconc results batch)))))
       (should-not results)
-      (while (process-live-p proc) (accept-process-output proc 0.1))
+      (bdx-test--wait-for-process proc)
       (should results)
 
       (setq results (seq-sort-by (lambda (x) (plist-get x :name))
@@ -264,7 +268,7 @@ int bar() { return 0; }
                   (lambda (batch)
                     (setq results (nconc results batch)))))
       (should-not results)
-      (while (process-live-p proc) (accept-process-output proc 0.1))
+      (bdx-test--wait-for-process proc)
       (should results)
 
       (setq results (seq-sort-by (lambda (x) (plist-get x :name))
@@ -295,8 +299,7 @@ const char bar[10];
                                  (lambda (cands)
                                    (setq all-cands
                                          (append all-cands cands)))))
-        (while (process-live-p proc)
-          (accept-process-output nil 0.1))
+        (bdx-test--wait-for-process proc)
 
         (setq ivy--all-candidates
               (mapcar (lambda (data)
