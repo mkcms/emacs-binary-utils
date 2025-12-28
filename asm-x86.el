@@ -115,7 +115,7 @@ This returns a string like \"reloc+0x1a\".  ADDEND can be nil."
              ?#
              (zero-or-more space)
              (group (one-or-more (not space)))
-             (group (zero-or-more any) eol))
+             (group (zero-or-more not-newline) eol))
              nil t)
       (let ((rest (match-string 4)))
         (replace-match "\\3(%rip)\\2")

@@ -228,7 +228,7 @@ The groups are:
    word-boundary
    (1+ hex-digit) space
    ?<
-   (group (1+ any))
+   (group (1+ not-newline))
    ?>
    eol)
   "Regexp matching a symbolic reference, with hex address before.
@@ -323,7 +323,7 @@ This finds file format by searching for this line:
    (group (+ hex-digit)) (* space)
 
    ;; Function name
-   ?< (group (* any)) ?> ?:
+   ?< (group (* not-newline)) ?> ?:
 
    eol)
   "A regexp matching function beginning in objdump disassembly output.
